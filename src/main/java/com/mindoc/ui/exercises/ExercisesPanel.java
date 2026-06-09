@@ -201,8 +201,8 @@ public class ExercisesPanel extends BasePanel {
         inner.getChildren().addAll(headerRow, progressBar, filterChipsBox, sp);
 
         VBox card = new VBox(0);
-        card.setMinWidth(300);
-        card.setPrefWidth(380);
+        card.setMinWidth(340);
+        card.setPrefWidth(420);
         card.setStyle(
             "-fx-background-color: white; " +
             "-fx-background-radius: 16; " +
@@ -298,7 +298,8 @@ public class ExercisesPanel extends BasePanel {
         Label name = new Label(ex.getTitle());
         name.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
         name.setTextFill(Color.web(MindDocTheme.TEXT_PRIMARY));
-        name.setWrapText(true);
+        name.setWrapText(false);             // single line + ellipsis
+        name.setMaxWidth(Double.MAX_VALUE);
 
         HBox meta = new HBox(10);
         meta.setAlignment(Pos.CENTER_LEFT);
