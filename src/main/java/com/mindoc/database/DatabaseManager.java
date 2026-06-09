@@ -132,6 +132,30 @@ public class DatabaseManager {
                 "date TEXT," +
                 "FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE" +
                 ")");
+
+        // App settings table
+        executeSql("CREATE TABLE IF NOT EXISTS app_settings (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "user_id INTEGER NOT NULL UNIQUE," +
+                "theme TEXT DEFAULT 'Light'," +
+                "language TEXT DEFAULT 'English'," +
+                "text_size INTEGER DEFAULT 100," +
+                "notifications_enabled INTEGER DEFAULT 1," +
+                "updated_at TEXT," +
+                "FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE" +
+                ")");
+
+        // Learning progress table
+        executeSql("CREATE TABLE IF NOT EXISTS learning_progress (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "user_id INTEGER NOT NULL," +
+                "item_type TEXT NOT NULL," +
+                "item_id INTEGER NOT NULL," +
+                "status TEXT NOT NULL," +
+                "updated_at TEXT," +
+                "UNIQUE(user_id, item_type, item_id)," +
+                "FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE" +
+                ")");
         
         logger.info("All tables created/verified successfully");
     }
@@ -166,6 +190,9 @@ public class DatabaseManager {
         if (isTableEmpty("exercises")) {
             insertDefaultExercises();
         }
+
+        insertDefaultSettingsForUsers();
+        backfillLearningContent();
     }
     
     private void insertDefaultSymptoms() throws SQLException {
@@ -255,6 +282,37 @@ public class DatabaseManager {
              ResultSet rs = stmt.executeQuery(sql)) {
             return rs.getInt(1) == 0;
         }
+    }
+
+    private void insertDefaultSettingsForUsers() throws SQLException {
+        String sql =
+            "INSERT INTO app_settings (user_id, theme, language, text_size, notifications_enabled, updated_at) " +
+            "SELECT id, 'Light', 'English', 100, 1, ? FROM users " +
+            "WHERE id NOT IN (SELECT user_id FROM app_settings)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, java.time.LocalDateTime.now().toString());
+            pstmt.executeUpdate();
+        }
+    }
+
+    private void backfillLearningContent() throws SQLException {
+        executeSql(
+            "UPDATE cbt_courses SET content = " +
+            "'1. Read the description carefully.\\n' ||" +
+            "'2. Practice one core idea from this topic today.\\n' ||" +
+            "'3. Write down one observation in your journal.\\n' ||" +
+            "'4. Repeat tomorrow and compare how you feel.' " +
+            "WHERE content IS NULL OR TRIM(content) = ''"
+        );
+
+        executeSql(
+            "UPDATE exercises SET instructions = " +
+            "'1. Find a quiet place.\\n' ||" +
+            "'2. Follow the exercise description step by step.\\n' ||" +
+            "'3. Keep steady breathing during the full duration.\\n' ||" +
+            "'4. After completion, note how you feel.' " +
+            "WHERE instructions IS NULL OR TRIM(instructions) = ''"
+        );
     }
     
     private void executeSql(String sql) throws SQLException {

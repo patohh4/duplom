@@ -4,6 +4,7 @@ import com.mindoc.model.User;
 import com.mindoc.repository.UserRepository;
 import com.mindoc.ui.common.BasePanel;
 import com.mindoc.ui.theme.MindDocTheme;
+import com.mindoc.util.I18n;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
@@ -31,13 +32,13 @@ public class ProfilePanel extends BasePanel {
     private Label emailLabel;
     private Label memberSinceLabel;
     private Label statusLabel;
+    private Label profileTitle;
     
     private TextField firstNameField;
     private TextField lastNameField;
     private DatePicker dobPicker;
     private ComboBox<String> genderCombo;
     private TextArea bioField;
-    private CheckBox notificationsCheckbox;
     
     private boolean editMode = false;
     
@@ -55,111 +56,113 @@ public class ProfilePanel extends BasePanel {
     }
     
     private void initializeUI() {
-        setSpacing(15);
-        setPadding(new Insets(20));
-        
+        setSpacing(0);
+        setPadding(new Insets(0));
+        setStyle("-fx-background-color: " + MindDocTheme.BACKGROUND + ";");
+
         // Header
         VBox headerSection = createHeaderSection();
         getChildren().add(headerSection);
-        
-        // Divider
-        Separator separator = new Separator();
-        getChildren().add(separator);
-        
+
         // Content
         ScrollPane scrollPane = new ScrollPane();
         scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background-color: " + MindDocTheme.BACKGROUND + "; -fx-background: " + MindDocTheme.BACKGROUND + ";");
         VBox contentSection = createContentSection();
         scrollPane.setContent(contentSection);
+        VBox.setVgrow(scrollPane, javafx.scene.layout.Priority.ALWAYS);
         getChildren().add(scrollPane);
     }
-    
+
     private VBox createHeaderSection() {
-        VBox header = new VBox(15);
-        header.setPadding(new Insets(20));
-        header.setStyle(
-            "-fx-border-radius: 10;" +
-            "-fx-background-color: #f5f5f5;" +
-            "-fx-padding: 20;"
+        VBox header = new VBox(0);
+
+        // Gradient banner
+        HBox banner = new HBox();
+        banner.setStyle(
+            "-fx-background-color: linear-gradient(from 0% 0% to 100% 0%, " +
+                MindDocTheme.PRIMARY + ", " + MindDocTheme.SECONDARY + "); " +
+            "-fx-padding: 28 32 0 32; " +
+            "-fx-effect: dropshadow(three-pass-box, #00000020, 10, 0, 0, 4);"
         );
-        
-        // Profile title
-        Label profileTitle = new Label("👤 User Profile");
-        profileTitle.setFont(Font.font("System", FontWeight.BOLD, 24));
-        profileTitle.setTextFill(javafx.scene.paint.Color.web(MindDocTheme.PRIMARY));
-        
-        // User info box
-        HBox userInfoBox = new HBox(30);
-        userInfoBox.setAlignment(Pos.CENTER_LEFT);
-        userInfoBox.setPadding(new Insets(15));
-        
-        // Profile avatar
-        VBox avatarBox = new VBox();
-        avatarBox.setAlignment(Pos.CENTER);
+        banner.setAlignment(Pos.CENTER_LEFT);
+
+        // Profile title (hidden, kept for applyLanguage)
+        profileTitle = new Label("👤 User Profile");
+        profileTitle.setVisible(false);
+        profileTitle.setManaged(false);
+
+        // Avatar circle
+        javafx.scene.layout.StackPane avatarBox = new javafx.scene.layout.StackPane();
         avatarBox.setStyle(
-            "-fx-border-radius: 50;" +
-            "-fx-background-color: " + MindDocTheme.PRIMARY + ";" +
-            "-fx-min-width: 80;" +
-            "-fx-min-height: 80;"
+            "-fx-background-color: white; " +
+            "-fx-background-radius: 50; " +
+            "-fx-min-width: 80; -fx-min-height: 80; " +
+            "-fx-max-width: 80; -fx-max-height: 80; " +
+            "-fx-effect: dropshadow(three-pass-box, #00000033, 8, 0, 0, 2);"
         );
         Label avatarLabel = new Label("🧠");
-        avatarLabel.setFont(Font.font("System", 40));
+        avatarLabel.setFont(Font.font("System", 38));
         avatarBox.getChildren().add(avatarLabel);
-        
+
         // User details
-        VBox detailsBox = new VBox(5);
-        
-        nameLabel = new Label(currentUser != null ? 
+        VBox detailsBox = new VBox(4);
+        detailsBox.setPadding(new Insets(0, 0, 0, 16));
+
+        nameLabel = new Label(currentUser != null ?
             (currentUser.getFirstName() != null && currentUser.getLastName() != null ?
             currentUser.getFirstName() + " " + currentUser.getLastName() : currentUser.getUsername()) :
             "User");
-        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
-        nameLabel.setTextFill(javafx.scene.paint.Color.web("#333"));
-        
+        nameLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+        nameLabel.setTextFill(javafx.scene.paint.Color.WHITE);
+
         emailLabel = new Label(currentUser != null ? currentUser.getEmail() : "");
-        emailLabel.setFont(Font.font("System", 12));
-        emailLabel.setTextFill(javafx.scene.paint.Color.web("#666"));
-        
-        memberSinceLabel = new Label("Member since " + 
+        emailLabel.setFont(Font.font("Segoe UI", 13));
+        emailLabel.setTextFill(javafx.scene.paint.Color.web("#d1fae5"));
+
+        memberSinceLabel = new Label(I18n.t("member_since", "Member since") + " " +
             (currentUser != null && currentUser.getRegistrationDate() != null ?
             currentUser.getRegistrationDate().toString() : "N/A"));
-        memberSinceLabel.setFont(Font.font("System", 11));
-        memberSinceLabel.setTextFill(javafx.scene.paint.Color.web("#999"));
-        
+        memberSinceLabel.setFont(Font.font("Segoe UI", 11));
+        memberSinceLabel.setTextFill(javafx.scene.paint.Color.web("#a7f3d0"));
+
         detailsBox.getChildren().addAll(nameLabel, emailLabel, memberSinceLabel);
-        
-        userInfoBox.getChildren().addAll(avatarBox, detailsBox);
-        
-        // Status box
-        HBox statusBox = new HBox(10);
+
+        HBox.setHgrow(detailsBox, javafx.scene.layout.Priority.ALWAYS);
+        banner.getChildren().addAll(avatarBox, detailsBox, profileTitle);
+
+        // Status bar below banner
+        HBox statusBox = new HBox(8);
         statusBox.setAlignment(Pos.CENTER_LEFT);
-        statusBox.setPadding(new Insets(10));
-        statusBox.setStyle("-fx-background-color: #e8f5e9; -fx-border-radius: 5;");
-        
-        Label statusLabelTitle = new Label("Current Status:");
-        statusLabelTitle.setFont(Font.font("System", FontWeight.BOLD, 12));
-        
-        statusLabel = new Label("✅ Active");
-        statusLabel.setFont(Font.font("System", 12));
+        statusBox.setPadding(new Insets(10, 32, 10, 32));
+        statusBox.setStyle(
+            "-fx-background-color: " + MindDocTheme.PRIMARY + "22; " +
+            "-fx-border-color: " + MindDocTheme.PRIMARY + "33; " +
+            "-fx-border-width: 0 0 1 0;"
+        );
+
+        Label statusLabelTitle = new Label(I18n.t("current_status", "Current Status:"));
+        statusLabelTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+        statusLabelTitle.setTextFill(javafx.scene.paint.Color.web(MindDocTheme.TEXT_SECONDARY));
+
+        statusLabel = new Label(I18n.t("active", "✅ Active"));
+        statusLabel.setFont(Font.font("Segoe UI", 12));
         statusLabel.setTextFill(javafx.scene.paint.Color.web(MindDocTheme.SUCCESS));
-        
+
         statusBox.getChildren().addAll(statusLabelTitle, statusLabel);
-        
-        header.getChildren().addAll(profileTitle, userInfoBox, statusBox);
+
+        header.getChildren().addAll(banner, statusBox);
         return header;
     }
     
     private VBox createContentSection() {
         VBox content = new VBox(20);
-        content.setPadding(new Insets(20));
+        content.setPadding(new Insets(24));
+        content.setStyle("-fx-background-color: " + MindDocTheme.BACKGROUND + ";");
         
         // Personal Information Section
         VBox personalSection = createPersonalSection();
         content.getChildren().add(personalSection);
-        
-        // Preferences Section
-        VBox preferencesSection = createPreferencesSection();
-        content.getChildren().add(preferencesSection);
         
         // Action buttons
         HBox buttonsBox = createActionButtons();
@@ -170,24 +173,25 @@ public class ProfilePanel extends BasePanel {
     
     private VBox createPersonalSection() {
         VBox section = new VBox(15);
-        section.setPadding(new Insets(15));
+        section.setPadding(new Insets(22));
         section.setStyle(
-            "-fx-border-radius: 10;" +
-            "-fx-border-color: #e0e0e0;" +
-            "-fx-border-width: 1;"
+            "-fx-background-color: white; " +
+            "-fx-background-radius: 14; " +
+            "-fx-border-radius: 14; " +
+            "-fx-effect: dropshadow(three-pass-box, #00000014, 8, 0, 0, 2);"
         );
         
-        Label sectionTitle = new Label("📋 Personal Information");
+        Label sectionTitle = new Label(I18n.t("personal_info", "📋 Personal Information"));
         sectionTitle.setFont(Font.font("System", FontWeight.BOLD, 14));
         sectionTitle.setTextFill(javafx.scene.paint.Color.web(MindDocTheme.PRIMARY));
         section.getChildren().add(sectionTitle);
         
         // First Name
         VBox firstNameBox = new VBox(5);
-        Label firstNameLbl = new Label("First Name");
+        Label firstNameLbl = new Label(I18n.t("first_name", "First Name"));
         firstNameLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 12;");
         firstNameField = new TextField();
-        firstNameField.setPromptText("Enter your first name");
+        firstNameField.setPromptText(I18n.t("first_name", "First Name"));
         firstNameField.setDisable(true);
         firstNameField.setText(currentUser != null && currentUser.getFirstName() != null ? 
             currentUser.getFirstName() : "");
@@ -196,10 +200,10 @@ public class ProfilePanel extends BasePanel {
         
         // Last Name
         VBox lastNameBox = new VBox(5);
-        Label lastNameLbl = new Label("Last Name");
+        Label lastNameLbl = new Label(I18n.t("last_name", "Last Name"));
         lastNameLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 12;");
         lastNameField = new TextField();
-        lastNameField.setPromptText("Enter your last name");
+        lastNameField.setPromptText(I18n.t("last_name", "Last Name"));
         lastNameField.setDisable(true);
         lastNameField.setText(currentUser != null && currentUser.getLastName() != null ? 
             currentUser.getLastName() : "");
@@ -209,7 +213,7 @@ public class ProfilePanel extends BasePanel {
         // Date of Birth
         HBox dobBox = new HBox(20);
         VBox dobLabelBox = new VBox(5);
-        Label dobLbl = new Label("Date of Birth");
+        Label dobLbl = new Label(I18n.t("date_of_birth", "Date of Birth"));
         dobLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 12;");
         dobPicker = new DatePicker();
         dobPicker.setDisable(true);
@@ -224,7 +228,7 @@ public class ProfilePanel extends BasePanel {
         dobLabelBox.setMaxWidth(250);
         
         VBox genderBox = new VBox(5);
-        Label genderLbl = new Label("Gender");
+        Label genderLbl = new Label(I18n.t("gender", "Gender"));
         genderLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 12;");
         genderCombo = new ComboBox<>();
         genderCombo.getItems().addAll("Male", "Female", "Other", "Prefer not to say");
@@ -240,10 +244,10 @@ public class ProfilePanel extends BasePanel {
         
         // Bio
         VBox bioBox = new VBox(5);
-        Label bioLbl = new Label("About You (Bio)");
+        Label bioLbl = new Label(I18n.t("bio", "About You (Bio)"));
         bioLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 12;");
         bioField = new TextArea();
-        bioField.setPromptText("Tell us about yourself...");
+        bioField.setPromptText(I18n.t("bio", "About You (Bio)"));
         bioField.setWrapText(true);
         bioField.setPrefRowCount(4);
         bioField.setDisable(true);
@@ -254,88 +258,42 @@ public class ProfilePanel extends BasePanel {
         return section;
     }
     
-    private VBox createPreferencesSection() {
-        VBox section = new VBox(15);
-        section.setPadding(new Insets(15));
-        section.setStyle(
-            "-fx-border-radius: 10;" +
-            "-fx-border-color: #e0e0e0;" +
-            "-fx-border-width: 1;"
-        );
-        
-        Label sectionTitle = new Label("⚙️ Preferences");
-        sectionTitle.setFont(Font.font("System", FontWeight.BOLD, 14));
-        sectionTitle.setTextFill(javafx.scene.paint.Color.web(MindDocTheme.PRIMARY));
-        section.getChildren().add(sectionTitle);
-        
-        // Notifications
-        notificationsCheckbox = new CheckBox("Enable Email Notifications");
-        notificationsCheckbox.setFont(Font.font("System", 12));
-        notificationsCheckbox.setDisable(true);
-        if (currentUser != null) {
-            notificationsCheckbox.setSelected(true);
-        }
-        section.getChildren().add(notificationsCheckbox);
-        
-        // Theme preference
-        HBox themeBox = new HBox(10);
-        Label themeLbl = new Label("Theme:");
-        themeLbl.setStyle("-fx-font-weight: bold;");
-        ComboBox<String> themeCombo = new ComboBox<>();
-        themeCombo.getItems().addAll("Light", "Dark", "Auto");
-        themeCombo.setValue("Light");
-        themeCombo.setDisable(true);
-        themeBox.getChildren().addAll(themeLbl, themeCombo);
-        section.getChildren().add(themeBox);
-        
-        // Language preference
-        HBox languageBox = new HBox(10);
-        Label languageLbl = new Label("Language:");
-        languageLbl.setStyle("-fx-font-weight: bold;");
-        ComboBox<String> languageCombo = new ComboBox<>();
-        languageCombo.getItems().addAll("English", "Українська", "Русский");
-        languageCombo.setValue("English");
-        languageCombo.setDisable(true);
-        languageBox.getChildren().addAll(languageLbl, languageCombo);
-        section.getChildren().add(languageBox);
-        
-        return section;
-    }
-    
     private HBox createActionButtons() {
         HBox buttonBox = new HBox(10);
         buttonBox.setAlignment(Pos.CENTER);
         buttonBox.setPadding(new Insets(20, 0, 0, 0));
         
-        Button editButton = new Button("✏️ Edit Profile");
+        Button editButton = new Button(I18n.t("edit_profile", "✏️ Edit Profile"));
         editButton.setStyle(
-            "-fx-padding: 12px 30px;" +
-            "-fx-font-size: 13px;" +
-            "-fx-background-color: " + MindDocTheme.PRIMARY + ";" +
-            "-fx-text-fill: white;" +
-            "-fx-border-radius: 5;" +
-            "-fx-cursor: hand;"
+            "-fx-padding: 12 28; " +
+            "-fx-font-size: 13px; " +
+            "-fx-background-color: " + MindDocTheme.PRIMARY + "; " +
+            "-fx-text-fill: white; " +
+            "-fx-background-radius: 8; " +
+            "-fx-cursor: hand; " +
+            "-fx-effect: dropshadow(three-pass-box, #00000026, 4, 0, 0, 2);"
         );
-        
-        Button cancelButton = new Button("❌ Cancel");
+
+        Button cancelButton = new Button(I18n.t("cancel", "❌ Cancel"));
         cancelButton.setStyle(
-            "-fx-padding: 12px 30px;" +
-            "-fx-font-size: 13px;" +
-            "-fx-background-color: #999;" +
-            "-fx-text-fill: white;" +
-            "-fx-border-radius: 5;" +
+            "-fx-padding: 12 28; " +
+            "-fx-font-size: 13px; " +
+            "-fx-background-color: #9ca3af; " +
+            "-fx-text-fill: white; " +
+            "-fx-background-radius: 8; " +
             "-fx-cursor: hand;"
         );
         cancelButton.setDisable(true);
-        
-        Button saveButton = new Button("💾 Save Changes");
+
+        Button saveButton = new Button(I18n.t("save_changes", "💾 Save Changes"));
         saveButton.setStyle(
-            "-fx-padding: 12px 30px;" +
-            "-fx-font-size: 13px;" +
-            "-fx-background-color: " + MindDocTheme.SUCCESS + ";" +
-            "-fx-text-fill: white;" +
-            "-fx-border-radius: 5;" +
-            "-fx-cursor: hand;"
+            "-fx-padding: 12 28; " +
+            "-fx-font-size: 13px; " +
+            "-fx-background-color: " + MindDocTheme.SUCCESS + "; " +
+            "-fx-text-fill: white; " +
+            "-fx-background-radius: 8; " +
+            "-fx-cursor: hand; " +
+            "-fx-effect: dropshadow(three-pass-box, #00000026, 4, 0, 0, 2);"
         );
         saveButton.setDisable(true);
         
@@ -344,12 +302,12 @@ public class ProfilePanel extends BasePanel {
             setEditMode(editMode);
             
             if (editMode) {
-                editButton.setText("⏸️ Editing...");
+                editButton.setText(I18n.t("editing", "⏸️ Editing..."));
                 editButton.setDisable(true);
                 cancelButton.setDisable(false);
                 saveButton.setDisable(false);
             } else {
-                editButton.setText("✏️ Edit Profile");
+                editButton.setText(I18n.t("edit_profile", "✏️ Edit Profile"));
                 editButton.setDisable(false);
                 cancelButton.setDisable(true);
                 saveButton.setDisable(true);
@@ -359,7 +317,7 @@ public class ProfilePanel extends BasePanel {
         cancelButton.setOnAction(e -> {
             editMode = false;
             setEditMode(false);
-            editButton.setText("✏️ Edit Profile");
+            editButton.setText(I18n.t("edit_profile", "✏️ Edit Profile"));
             editButton.setDisable(false);
             cancelButton.setDisable(true);
             saveButton.setDisable(true);
@@ -370,7 +328,7 @@ public class ProfilePanel extends BasePanel {
             saveProfileChanges();
             editMode = false;
             setEditMode(false);
-            editButton.setText("✏️ Edit Profile");
+            editButton.setText(I18n.t("edit_profile", "✏️ Edit Profile"));
             editButton.setDisable(false);
             cancelButton.setDisable(true);
             saveButton.setDisable(true);
@@ -386,7 +344,6 @@ public class ProfilePanel extends BasePanel {
         dobPicker.setDisable(!enabled);
         genderCombo.setDisable(!enabled);
         bioField.setDisable(!enabled);
-        notificationsCheckbox.setDisable(!enabled);
     }
     
     private void refreshUserData() {
@@ -413,11 +370,11 @@ public class ProfilePanel extends BasePanel {
             // Update display
             nameLabel.setText(currentUser.getFirstName() + " " + currentUser.getLastName());
             
-            showSuccessAlert("Success", "Profile updated successfully!");
+            showSuccessAlert(I18n.t("success", "Success"), I18n.t("profile_updated", "Profile updated successfully!"));
             logger.info("Profile updated for user: {}", currentUser.getUsername());
         } catch (SQLException e) {
             logger.error("Error saving profile", e);
-            showErrorAlert("Error", "Failed to save profile: " + e.getMessage());
+            showErrorAlert(I18n.t("error", "Error"), I18n.t("failed_save_profile", "Failed to save profile: ") + e.getMessage());
         }
     }
     
@@ -443,10 +400,18 @@ public class ProfilePanel extends BasePanel {
             nameLabel.setText(currentUser.getFirstName() != null && currentUser.getLastName() != null ?
                 currentUser.getFirstName() + " " + currentUser.getLastName() : currentUser.getUsername());
             emailLabel.setText(currentUser.getEmail());
-            memberSinceLabel.setText("Member since " + currentUser.getRegistrationDate());
+            memberSinceLabel.setText(I18n.t("member_since", "Member since") + " " + currentUser.getRegistrationDate());
             refreshUserData();
         } catch (SQLException e) {
             logger.error("Error refreshing profile", e);
         }
+    }
+
+    public void applyLanguage(String language) {
+        if (profileTitle != null) {
+            profileTitle.setText(I18n.t("profile", "👤 User Profile"));
+        }
+        memberSinceLabel.setText(I18n.t("member_since", "Member since") + " " +
+            (currentUser != null && currentUser.getRegistrationDate() != null ? currentUser.getRegistrationDate() : "N/A"));
     }
 }

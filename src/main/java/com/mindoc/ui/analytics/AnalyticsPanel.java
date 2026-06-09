@@ -5,6 +5,7 @@ import com.mindoc.model.MoodEntry;
 import com.mindoc.repository.MoodEntryRepository;
 import com.mindoc.ui.common.BasePanel;
 import com.mindoc.ui.theme.MindDocTheme;
+import com.mindoc.util.I18n;
 import javafx.geometry.Insets;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -37,6 +38,7 @@ public class AnalyticsPanel extends BasePanel {
     private Label highestMoodLabel;
     private Label lowestMoodLabel;
     private Label entriesCountLabel;
+    private Label titleLabel;
     
     public AnalyticsPanel(int userId, DatabaseManager databaseManager) {
         this.currentUserId = userId;
@@ -49,92 +51,134 @@ public class AnalyticsPanel extends BasePanel {
     
     private void initializeUI() {
         setStyle("-fx-background-color: " + MindDocTheme.BACKGROUND + ";");
-        setPadding(new Insets(20));
-        setSpacing(15);
-        
-        // Title
-        Label titleLabel = new Label("📊 Analytics & Statistics");
-        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
-        titleLabel.setTextFill(javafx.scene.paint.Color.web(MindDocTheme.PRIMARY));
+        setPadding(new Insets(28));
+        setSpacing(16);
+
+        // Header banner
+        HBox header = createHeaderBanner();
+        titleLabel = null;
+        getChildren().add(header);
+
+        // Title label (hidden, kept for applyLanguage)
+        titleLabel = new Label("📊 Analytics & Statistics");
+        titleLabel.setVisible(false);
+        titleLabel.setManaged(false);
         getChildren().add(titleLabel);
-        
+
         // Stats cards
         HBox statsContainer = createStatsCards();
         getChildren().add(statsContainer);
-        
+
         // Chart section
         VBox chartSection = createChartSection();
         getChildren().add(chartSection);
         VBox.setVgrow(chartSection, javafx.scene.layout.Priority.ALWAYS);
     }
-    
+
+    private HBox createHeaderBanner() {
+        HBox section = new HBox();
+        section.setStyle(
+            "-fx-background-color: linear-gradient(from 0% 0% to 100% 0%, " +
+                MindDocTheme.PRIMARY + ", " + MindDocTheme.SECONDARY + "); " +
+            "-fx-background-radius: 16; " +
+            "-fx-padding: 24 32; " +
+            "-fx-effect: dropshadow(three-pass-box, #00000020, 10, 0, 0, 4);"
+        );
+        section.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
+        VBox textBox = new VBox(4);
+        HBox.setHgrow(textBox, javafx.scene.layout.Priority.ALWAYS);
+
+        Label title = new Label("📊 Analytics & Statistics");
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
+        title.setTextFill(javafx.scene.paint.Color.WHITE);
+
+        Label subtitle = new Label("Insights from your mood and wellness data");
+        subtitle.setFont(Font.font("Segoe UI", 13));
+        subtitle.setTextFill(javafx.scene.paint.Color.web("#d1fae5"));
+
+        textBox.getChildren().addAll(title, subtitle);
+
+        Label deco = new Label("📈");
+        deco.setFont(Font.font("System", 48));
+        deco.setOpacity(0.7);
+
+        section.getChildren().addAll(textBox, deco);
+        return section;
+    }
+
     private HBox createStatsCards() {
-        HBox container = new HBox(15);
+        HBox container = new HBox(16);
         container.setPadding(new Insets(0));
-        
-        // Average Mood Card
-        VBox card1 = createStatCard("😊 Average Mood", "", "7.5");
-        averageMoodLabel = (Label) ((VBox) card1.getChildren().get(1)).getChildren().get(0);
+
+        Label[] labels = new Label[4];
+
+        VBox card1 = createStatCard("😊 " + I18n.t("average_mood", "Average Mood"), MindDocTheme.PRIMARY, labels, 0);
+        averageMoodLabel = labels[0];
         container.getChildren().add(card1);
         HBox.setHgrow(card1, javafx.scene.layout.Priority.ALWAYS);
-        
-        // Highest Mood Card
-        VBox card2 = createStatCard("🏆 Best Mood", "", "10");
-        highestMoodLabel = (Label) ((VBox) card2.getChildren().get(1)).getChildren().get(0);
+
+        VBox card2 = createStatCard(I18n.t("best_mood", "🏆 Best Mood"), MindDocTheme.SUCCESS, labels, 1);
+        highestMoodLabel = labels[1];
         container.getChildren().add(card2);
         HBox.setHgrow(card2, javafx.scene.layout.Priority.ALWAYS);
-        
-        // Lowest Mood Card
-        VBox card3 = createStatCard("📉 Tough Day", "", "3");
-        lowestMoodLabel = (Label) ((VBox) card3.getChildren().get(1)).getChildren().get(0);
+
+        VBox card3 = createStatCard(I18n.t("tough_day", "📉 Tough Day"), MindDocTheme.WARNING, labels, 2);
+        lowestMoodLabel = labels[2];
         container.getChildren().add(card3);
         HBox.setHgrow(card3, javafx.scene.layout.Priority.ALWAYS);
-        
-        // Total Entries Card
-        VBox card4 = createStatCard("📝 Total Entries", "", "24");
-        entriesCountLabel = (Label) ((VBox) card4.getChildren().get(1)).getChildren().get(0);
+
+        VBox card4 = createStatCard(I18n.t("total_entries", "📝 Total Entries"), MindDocTheme.INFO, labels, 3);
+        entriesCountLabel = labels[3];
         container.getChildren().add(card4);
         HBox.setHgrow(card4, javafx.scene.layout.Priority.ALWAYS);
-        
+
         return container;
     }
-    
-    private VBox createStatCard(String title, String unit, String value) {
-        VBox card = new VBox(10);
-        card.setStyle(
-            "-fx-border-color: #e2e8f0;" +
-            "-fx-border-radius: 8;" +
-            "-fx-padding: 20;" +
-            "-fx-background-color: white;"
-        );
-        card.setPadding(new Insets(15));
-        
+
+    private VBox createStatCard(String title, String accentColor, Label[] out, int idx) {
+        // Accent bar at top
+        javafx.scene.layout.Region bar = new javafx.scene.layout.Region();
+        bar.setPrefHeight(4);
+        bar.setMaxWidth(Double.MAX_VALUE);
+        bar.setStyle("-fx-background-color: " + accentColor + "; -fx-background-radius: 14 14 0 0;");
+
+        VBox inner = new VBox(6);
+        inner.setPadding(new Insets(14, 18, 18, 18));
+
         Label titleLabel = new Label(title);
-        titleLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 12));
-        titleLabel.setTextFill(javafx.scene.paint.Color.web("#666"));
-        
-        Label valueLabel = new Label(value);
-        valueLabel.setFont(Font.font("System", FontWeight.BOLD, 28));
-        valueLabel.setTextFill(javafx.scene.paint.Color.web(MindDocTheme.PRIMARY));
-        
-        VBox valueContainer = new VBox();
-        valueContainer.getChildren().add(valueLabel);
-        
-        card.getChildren().addAll(titleLabel, valueContainer);
-        
+        titleLabel.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
+        titleLabel.setTextFill(javafx.scene.paint.Color.web(MindDocTheme.TEXT_SECONDARY));
+
+        Label valueLabel = new Label("--");
+        valueLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 32));
+        valueLabel.setTextFill(javafx.scene.paint.Color.web(accentColor));
+        out[idx] = valueLabel;
+
+        inner.getChildren().addAll(titleLabel, valueLabel);
+
+        VBox card = new VBox(0);
+        card.setStyle(
+            "-fx-background-color: white; " +
+            "-fx-background-radius: 14; " +
+            "-fx-border-radius: 14; " +
+            "-fx-effect: dropshadow(three-pass-box, #00000014, 8, 0, 0, 2);"
+        );
+        card.getChildren().addAll(bar, inner);
         return card;
     }
-    
+
     private VBox createChartSection() {
         VBox section = new VBox(15);
         section.setStyle(
-            "-fx-border-color: #e2e8f0;" +
-            "-fx-border-radius: 8;" +
-            "-fx-padding: 20;" +
-            "-fx-background-color: white;"
+            "-fx-background-color: white; " +
+            "-fx-background-radius: 14; " +
+            "-fx-border-radius: 14; " +
+            "-fx-padding: 24; " +
+            "-fx-effect: dropshadow(three-pass-box, #00000014, 8, 0, 0, 2);"
         );
         
-        Label chartTitle = new Label("Mood Trend (Last 30 Days)");
+        Label chartTitle = new Label(I18n.t("analytics_trend", "Mood Trend (Last 30 Days)"));
         chartTitle.setFont(Font.font("System", FontWeight.BOLD, 14));
         section.getChildren().add(chartTitle);
         
@@ -144,7 +188,7 @@ public class AnalyticsPanel extends BasePanel {
         VBox.setVgrow(moodChartCanvas, javafx.scene.layout.Priority.ALWAYS);
         
         // Stats canvas
-        Label statsTitle = new Label("Weekly Summary");
+        Label statsTitle = new Label(I18n.t("weekly_summary", "Weekly Summary"));
         statsTitle.setFont(Font.font("System", FontWeight.BOLD, 14));
         statsTitle.setPadding(new Insets(15, 0, 0, 0));
         section.getChildren().add(statsTitle);
@@ -170,7 +214,7 @@ public class AnalyticsPanel extends BasePanel {
             if (entries.isEmpty()) {
                 gc.setFont(Font.font("System", 14));
                 gc.setFill(Color.web("#999"));
-                gc.fillText("No mood data available yet", width / 2 - 60, height / 2);
+                gc.fillText(I18n.t("no_mood_data", "No mood data available yet"), width / 2 - 60, height / 2);
                 return;
             }
             
@@ -226,17 +270,25 @@ public class AnalyticsPanel extends BasePanel {
             List<MoodEntry> entries = moodEntryRepository.findByUserId(currentUserId);
             
             // Group by day of week
-            Map<String, Double> dailyAverages = new LinkedHashMap<>();
+            Map<String, List<Double>> dailyValues = new LinkedHashMap<>();
             String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
             
             for (String day : days) {
-                dailyAverages.put(day, 0.0);
+                dailyValues.put(day, new ArrayList<>());
             }
             
-            // Calculate daily averages (simplified)
+            // Calculate daily averages properly
+            LocalDate today = LocalDate.now();
             for (MoodEntry entry : entries) {
-                dailyAverages.put(days[0], 
-                    (dailyAverages.get(days[0]) + entry.getMoodLevel()) / 2);
+                try {
+                    LocalDate entryDate = entry.getEntryDate();
+                    int dayOfWeek = entryDate.getDayOfWeek().getValue() - 1;
+                    if (dayOfWeek >= 0 && dayOfWeek < 7) {
+                        dailyValues.get(days[dayOfWeek]).add((double) entry.getMoodLevel());
+                    }
+                } catch (Exception e) {
+                    logger.warn("Skipping invalid entry date");
+                }
             }
             
             GraphicsContext gc = statsCanvas.getGraphicsContext2D();
@@ -248,22 +300,33 @@ public class AnalyticsPanel extends BasePanel {
             gc.fillRect(0, 0, width, height);
             
             // Draw bar chart
-            double barWidth = width / 10;
+            double barWidth = (width - 60) / 7;
             int index = 0;
             
-            for (Map.Entry<String, Double> dayEntry : dailyAverages.entrySet()) {
-                double barHeight = (dayEntry.getValue() * height) / 10;
+            for (Map.Entry<String, List<Double>> dayEntry : dailyValues.entrySet()) {
+                double average = dayEntry.getValue().isEmpty() ? 0 : 
+                    dayEntry.getValue().stream().mapToDouble(Double::doubleValue).average().orElse(0);
+                double barHeight = (average * (height - 60)) / 10;
                 double x = 40 + index * barWidth;
-                double y = height - barHeight;
+                double y = height - 40 - barHeight;
                 
                 // Draw bar
                 gc.setFill(Color.web(MindDocTheme.PRIMARY));
-                gc.fillRect(x, y, barWidth - 5, barHeight);
+                gc.fillRect(x + 2, y, barWidth - 5, barHeight);
                 
                 // Draw label
                 gc.setFill(Color.web("#666"));
                 gc.setFont(Font.font("System", 10));
-                gc.fillText(dayEntry.getKey(), x + 5, height - 5);
+                gc.fillText(dayEntry.getKey(), x + 8, height - 20);
+                
+                // Draw value on top of bar if exists
+                if (average > 0) {
+                    gc.setFill(Color.web(MindDocTheme.PRIMARY));
+                    gc.setFont(Font.font("System", 10));
+                    gc.fillText(String.format("%.1f", average), x + 5, y - 5);
+                }
+                
+                index++;
             }
             
         } catch (SQLException e) {
@@ -308,9 +371,20 @@ public class AnalyticsPanel extends BasePanel {
             // Draw charts
             drawMoodChart();
             drawWeeklyStats();
+            applyLanguage(languageFromI18n());
             
         } catch (SQLException e) {
             logger.error("Error refreshing analytics", e);
         }
+    }
+
+    public void applyLanguage(String language) {
+        if (titleLabel != null) {
+            titleLabel.setText(I18n.t("analytics", "📊 Analytics & Statistics"));
+        }
+    }
+
+    private String languageFromI18n() {
+        return I18n.isUkrainian() ? "Українська" : "English";
     }
 }

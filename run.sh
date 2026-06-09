@@ -13,8 +13,8 @@ if ! command -v mvn &> /dev/null; then
     exit 1
 fi
 
-# Check if Java 21+ is installed
-JAVA_VERSION=$(java -version 2>&1 | grep -oP 'version "\K[^"]+')
+# Check Java version
+JAVA_VERSION=$(java -version 2>&1 | awk -F\" '/version/ {print $2}')
 echo "✓ Java version detected: $JAVA_VERSION"
 
 # Clean and build
@@ -32,8 +32,8 @@ echo "✓ Build successful!"
 echo ""
 echo "Launching MindDoc..."
 
-# Run the application
-java -jar target/mood-tracker-app-1.0.0.jar
+# Run JavaFX app with Maven plugin (ensures JavaFX modules are on module-path)
+mvn -q javafx:run
 
 echo ""
 echo "Thank you for using MindDoc!"

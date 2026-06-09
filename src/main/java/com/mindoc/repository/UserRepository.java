@@ -117,6 +117,8 @@ public class UserRepository {
             regDate,
             rs.getInt("notifications_enabled") == 1
         );
+        user.setGender(rs.getString("gender"));
+        user.setLastLoginDate(rs.getString("last_login_date"));
         return user;
     }
 }
