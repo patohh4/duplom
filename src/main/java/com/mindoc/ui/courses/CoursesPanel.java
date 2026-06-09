@@ -45,6 +45,10 @@ public class CoursesPanel extends BasePanel {
     // Right panel
     private VBox courseDetailsPanel;
 
+    // Responsive layout
+    private VBox leftPanel;
+    private boolean wideMode = true;
+
     // i18n
     private Label titleLabel;
 
@@ -101,19 +105,80 @@ public class CoursesPanel extends BasePanel {
         titleLabel.setManaged(false);
         getChildren().add(titleLabel);
 
-        // Body
-        HBox body = new HBox(20);
-        body.setPadding(new Insets(24));
-        body.setFillHeight(true);
-        VBox.setVgrow(body, Priority.ALWAYS);
-
-        VBox left  = buildLeftPanel();
+        leftPanel = buildLeftPanel();
         courseDetailsPanel = buildDetailsPlaceholderPanel();
 
-        HBox.setHgrow(left,               Priority.ALWAYS);
-        HBox.setHgrow(courseDetailsPanel, Priority.ALWAYS);
-        body.getChildren().addAll(left, courseDetailsPanel);
-        getChildren().add(body);
+        // Build initial wide layout, then listen for width changes
+        buildBodyLayout(true);
+        widthProperty().addListener((obs, ov, nv) -> {
+            if (nv.doubleValue() <= 0) return;
+            boolean wide = nv.doubleValue() >= 900;
+            if (wide != wideMode) buildBodyLayout(wide);
+        });
+    }
+
+    /** Detaches a node from its current Pane parent (if any). */
+    private void detachFromParent(javafx.scene.Node node) {
+        if (node.getParent() instanceof Pane p) p.getChildren().remove(node);
+    }
+
+    /**
+     * Rebuilds the body container — side-by-side HBox when wide,
+     * scrollable VBox stack when narrow.
+     */
+    private void buildBodyLayout(boolean wide) {
+        wideMode = wide;
+
+        detachFromParent(leftPanel);
+        detachFromParent(courseDetailsPanel);
+
+        // Remove the old body container (index 2, after banner + hidden label)
+        if (getChildren().size() > 2) getChildren().remove(2);
+
+        if (wide) {
+            HBox body = new HBox(20);
+            body.setPadding(new Insets(24));
+            body.setFillHeight(true);
+            VBox.setVgrow(body, Priority.ALWAYS);
+
+            leftPanel.setPrefWidth(420);
+            leftPanel.setMinWidth(340);
+            leftPanel.setMaxWidth(Region.USE_PREF_SIZE);
+            leftPanel.setMaxHeight(Double.MAX_VALUE);
+            courseDetailsPanel.setMaxHeight(Double.MAX_VALUE);
+            courseDetailsPanel.setPrefWidth(Double.MAX_VALUE);
+
+            HBox.setHgrow(leftPanel,          Priority.NEVER);
+            HBox.setHgrow(courseDetailsPanel, Priority.ALWAYS);
+            body.getChildren().addAll(leftPanel, courseDetailsPanel);
+            getChildren().add(body);
+        } else {
+            VBox vbox = new VBox(20);
+            vbox.setPadding(new Insets(20));
+            vbox.setFillWidth(true);
+
+            leftPanel.setPrefWidth(Double.MAX_VALUE);
+            leftPanel.setMinWidth(0);
+            leftPanel.setMaxWidth(Double.MAX_VALUE);
+            leftPanel.setMaxHeight(460);
+            courseDetailsPanel.setPrefWidth(Double.MAX_VALUE);
+            courseDetailsPanel.setMaxWidth(Double.MAX_VALUE);
+            courseDetailsPanel.setMaxHeight(Double.MAX_VALUE);
+
+            VBox.setVgrow(leftPanel,          Priority.SOMETIMES);
+            VBox.setVgrow(courseDetailsPanel, Priority.ALWAYS);
+            vbox.getChildren().addAll(leftPanel, courseDetailsPanel);
+
+            ScrollPane sp = new ScrollPane(vbox);
+            sp.setFitToWidth(true);
+            sp.setStyle(
+                "-fx-background-color: transparent; " +
+                "-fx-background: transparent; " +
+                "-fx-padding: 0;"
+            );
+            VBox.setVgrow(sp, Priority.ALWAYS);
+            getChildren().add(sp);
+        }
     }
 
     // ── Header banner ─────────────────────────────────────────────────────────

@@ -63,6 +63,14 @@ public class MindDocApp extends Application {
     private SettingsPanel settingsPanel;
     // kept for applyLanguage text updates
     private Button[] navBtnRefs = new Button[8];
+    private boolean navCompact = false;
+
+    // static label data for compact ↔ full nav toggle
+    private static final String[][] NAV_TABS = {
+        {"🏠", "Dashboard"}, {"👤", "Profile"}, {"😊", "Mood"},
+        {"🩺", "Symptoms"}, {"📚", "Learn"}, {"💪", "Exercises"},
+        {"📊", "Analytics"}, {"⚙️", "Settings"}
+    };
 
     @Override
     public void start(Stage primaryStage) {
@@ -130,6 +138,9 @@ public class MindDocApp extends Application {
 
         mainScene = new Scene(mainRoot, 1280, 800);
         mainScene.getStylesheets().add(MindDocTheme.toDataUri("Light"));
+
+        // Responsive navbar — compact when window is narrow
+        mainScene.widthProperty().addListener((obs, ov, nv) -> updateNavCompact(nv.doubleValue()));
 
         // hide the built-in tab header + zero out any residual padding
         Platform.runLater(() -> {
@@ -250,28 +261,47 @@ public class MindDocApp extends Application {
         for (int i = 0; i < navButtons.size(); i++) {
             navButtons.get(i).setStyle(i == activeIdx ? navActiveStyle() : navInactiveStyle());
             navButtons.get(i).setFont(Font.font("Segoe UI",
-                i == activeIdx ? FontWeight.BOLD : FontWeight.NORMAL, 13));
+                i == activeIdx ? FontWeight.BOLD : FontWeight.NORMAL, navCompact ? 14 : 13));
+        }
+    }
+
+    /** Called when the scene width crosses the 1100 px breakpoint */
+    private void updateNavCompact(double sceneWidth) {
+        boolean compact = sceneWidth < 1100;
+        if (compact == navCompact) return;
+        navCompact = compact;
+        mainNavBar.setSpacing(compact ? 2 : 6);
+        for (int i = 0; i < navBtnRefs.length; i++) {
+            if (navBtnRefs[i] == null) continue;
+            navBtnRefs[i].setText(compact
+                    ? NAV_TABS[i][0]
+                    : NAV_TABS[i][0] + "  " + NAV_TABS[i][1]);
+        }
+        if (mainTabPane != null) {
+            updateNavActive(mainTabPane.getSelectionModel().getSelectedIndex());
         }
     }
 
     private String navActiveStyle() {
+        String pad = navCompact ? "7 11" : "7 16";
         return "-fx-background-color: white; " +
                "-fx-text-fill: " + MindDocTheme.PRIMARY + "; " +
                "-fx-background-radius: 10; " +
                "-fx-border-radius: 10; " +
-               "-fx-padding: 7 16; " +
+               "-fx-padding: " + pad + "; " +
                "-fx-cursor: hand; " +
                "-fx-effect: dropshadow(three-pass-box, #00000022, 4, 0, 0, 2);";
     }
 
     private String navInactiveStyle() {
+        String pad = navCompact ? "7 11" : "7 16";
         return "-fx-background-color: transparent; " +
                "-fx-text-fill: white; " +
                "-fx-border-color: #ffffff66; " +
                "-fx-border-width: 1.5; " +
                "-fx-border-radius: 10; " +
                "-fx-background-radius: 10; " +
-               "-fx-padding: 7 16; " +
+               "-fx-padding: " + pad + "; " +
                "-fx-cursor: hand;";
     }
 

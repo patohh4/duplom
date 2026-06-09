@@ -125,17 +125,25 @@ public class AnalyticsPanel extends BasePanel {
 
     // ── Stat cards row ────────────────────────────────────────────────────────
 
-    private HBox buildStatCards() {
-        HBox row = new HBox(16);
-        row.setFillHeight(true);
+    /**
+     * Returns a TilePane so cards automatically wrap to 2 (or 1) per row
+     * when the window is narrowed — fully adaptive with no extra listeners.
+     */
+    private TilePane buildStatCards() {
+        TilePane row = new TilePane();
+        row.setHgap(16);
+        row.setVgap(16);
+        row.setPrefColumns(4);
+        row.setPrefTileWidth(200);
+        row.setTileAlignment(Pos.TOP_LEFT);
 
         Label[] valueLabels = new Label[4];
-        ProgressBar[] bars = new ProgressBar[4];
+        ProgressBar[] bars  = new ProgressBar[4];
 
-        VBox c1 = buildStatCard("😊", "Average Mood",   MindDocTheme.PRIMARY,  valueLabels, bars, 0);
-        VBox c2 = buildStatCard("🏆", "Best Mood",      MindDocTheme.SUCCESS,  valueLabels, bars, 1);
-        VBox c3 = buildStatCard("📉", "Toughest Day",   MindDocTheme.WARNING,  valueLabels, bars, 2);
-        VBox c4 = buildStatCard("📝", "Total Entries",  MindDocTheme.INFO,     valueLabels, bars, 3);
+        VBox c1 = buildStatCard("😊", "Average Mood",  MindDocTheme.PRIMARY,  valueLabels, bars, 0);
+        VBox c2 = buildStatCard("🏆", "Best Mood",     MindDocTheme.SUCCESS,  valueLabels, bars, 1);
+        VBox c3 = buildStatCard("📉", "Toughest Day",  MindDocTheme.WARNING,  valueLabels, bars, 2);
+        VBox c4 = buildStatCard("📝", "Total Entries", MindDocTheme.INFO,     valueLabels, bars, 3);
 
         averageMoodLabel  = valueLabels[0];
         highestMoodLabel  = valueLabels[1];
@@ -146,8 +154,10 @@ public class AnalyticsPanel extends BasePanel {
         toughBar  = bars[2];
         totalBar  = bars[3];
 
+        // Each card stretches to fill its tile
         for (VBox c : new VBox[]{c1, c2, c3, c4}) {
-            HBox.setHgrow(c, Priority.ALWAYS);
+            c.setMaxWidth(Double.MAX_VALUE);
+            c.setMaxHeight(Double.MAX_VALUE);
         }
         row.getChildren().addAll(c1, c2, c3, c4);
         return row;

@@ -46,6 +46,10 @@ public class ExercisesPanel extends BasePanel {
     // Right panel
     private VBox exerciseDetailsPanel;
 
+    // Responsive layout
+    private VBox leftPanel;
+    private boolean wideMode = true;
+
     // i18n
     private Label titleLabel;
 
@@ -99,18 +103,82 @@ public class ExercisesPanel extends BasePanel {
         titleLabel.setManaged(false);
         getChildren().add(titleLabel);
 
-        HBox body = new HBox(20);
-        body.setPadding(new Insets(24));
-        body.setFillHeight(true);
-        VBox.setVgrow(body, Priority.ALWAYS);
-
-        VBox left  = buildLeftPanel();
+        leftPanel = buildLeftPanel();
         exerciseDetailsPanel = buildDetailsPlaceholder();
 
-        HBox.setHgrow(left,                 Priority.ALWAYS);
-        HBox.setHgrow(exerciseDetailsPanel, Priority.ALWAYS);
-        body.getChildren().addAll(left, exerciseDetailsPanel);
-        getChildren().add(body);
+        // Build initial wide layout, then listen for width changes
+        buildBodyLayout(true);
+        widthProperty().addListener((obs, ov, nv) -> {
+            if (nv.doubleValue() <= 0) return;
+            boolean wide = nv.doubleValue() >= 900;
+            if (wide != wideMode) buildBodyLayout(wide);
+        });
+    }
+
+    /** Detaches a node from its current Pane parent (if any). */
+    private void detachFromParent(javafx.scene.Node node) {
+        if (node.getParent() instanceof Pane p) p.getChildren().remove(node);
+    }
+
+    /**
+     * Rebuilds the body container — side-by-side HBox when wide,
+     * scrollable VBox stack when narrow.
+     */
+    private void buildBodyLayout(boolean wide) {
+        wideMode = wide;
+
+        // Detach panels from whatever parent they currently live in
+        detachFromParent(leftPanel);
+        detachFromParent(exerciseDetailsPanel);
+
+        // Remove the old body container (index 2, after banner + hidden label)
+        if (getChildren().size() > 2) getChildren().remove(2);
+
+        if (wide) {
+            HBox body = new HBox(20);
+            body.setPadding(new Insets(24));
+            body.setFillHeight(true);
+            VBox.setVgrow(body, Priority.ALWAYS);
+
+            leftPanel.setPrefWidth(420);
+            leftPanel.setMinWidth(340);
+            leftPanel.setMaxWidth(Region.USE_PREF_SIZE);
+            leftPanel.setMaxHeight(Double.MAX_VALUE);
+            exerciseDetailsPanel.setMaxHeight(Double.MAX_VALUE);
+            exerciseDetailsPanel.setPrefWidth(Double.MAX_VALUE);
+
+            HBox.setHgrow(leftPanel,             Priority.NEVER);
+            HBox.setHgrow(exerciseDetailsPanel,  Priority.ALWAYS);
+            body.getChildren().addAll(leftPanel, exerciseDetailsPanel);
+            getChildren().add(body);
+        } else {
+            // Narrow: stack list above details, both scrollable
+            VBox vbox = new VBox(20);
+            vbox.setPadding(new Insets(20));
+            vbox.setFillWidth(true);
+
+            leftPanel.setPrefWidth(Double.MAX_VALUE);
+            leftPanel.setMinWidth(0);
+            leftPanel.setMaxWidth(Double.MAX_VALUE);
+            leftPanel.setMaxHeight(460);   // cap list height so details are reachable
+            exerciseDetailsPanel.setPrefWidth(Double.MAX_VALUE);
+            exerciseDetailsPanel.setMaxWidth(Double.MAX_VALUE);
+            exerciseDetailsPanel.setMaxHeight(Double.MAX_VALUE);
+
+            VBox.setVgrow(leftPanel,             Priority.SOMETIMES);
+            VBox.setVgrow(exerciseDetailsPanel,  Priority.ALWAYS);
+            vbox.getChildren().addAll(leftPanel, exerciseDetailsPanel);
+
+            ScrollPane sp = new ScrollPane(vbox);
+            sp.setFitToWidth(true);
+            sp.setStyle(
+                "-fx-background-color: transparent; " +
+                "-fx-background: transparent; " +
+                "-fx-padding: 0;"
+            );
+            VBox.setVgrow(sp, Priority.ALWAYS);
+            getChildren().add(sp);
+        }
     }
 
     // ── Header ────────────────────────────────────────────────────────────────

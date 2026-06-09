@@ -59,6 +59,11 @@ public class SymptomTrackerPanel extends BasePanel {
     // kept for details dialog click
     private final Map<Integer, Symptom> symptomCache = new HashMap<>();
 
+    // Responsive layout
+    private VBox logSection;
+    private VBox histSection;
+    private boolean wideMode = true;
+
     public SymptomTrackerPanel(int userId, DatabaseManager databaseManager) {
         this.currentUserId = userId;
         this.databaseManager = databaseManager;
@@ -85,18 +90,62 @@ public class SymptomTrackerPanel extends BasePanel {
         titleLabel.setManaged(false);
         getChildren().add(titleLabel);
 
-        // Two-column body
-        HBox body = new HBox(20);
-        body.setPadding(new Insets(24));
-        body.setFillHeight(true);
-        VBox.setVgrow(body, Priority.ALWAYS);
+        // Build columns, then wire responsive listener
+        logSection  = buildLogSection();
+        histSection = buildHistorySection();
 
-        VBox log  = buildLogSection();
-        VBox hist = buildHistorySection();
-        HBox.setHgrow(log,  Priority.ALWAYS);
-        HBox.setHgrow(hist, Priority.ALWAYS);
-        body.getChildren().addAll(log, hist);
-        getChildren().add(body);
+        buildBodyLayout(true);
+        widthProperty().addListener((obs, ov, nv) -> {
+            if (nv.doubleValue() <= 0) return;
+            boolean wide = nv.doubleValue() >= 900;
+            if (wide != wideMode) buildBodyLayout(wide);
+        });
+    }
+
+    /** Detaches a node from its current Pane parent (if any). */
+    private void detachFromParent(javafx.scene.Node node) {
+        if (node.getParent() instanceof Pane p) p.getChildren().remove(node);
+    }
+
+    private void buildBodyLayout(boolean wide) {
+        wideMode = wide;
+        detachFromParent(logSection);
+        detachFromParent(histSection);
+        if (getChildren().size() > 2) getChildren().remove(2);
+
+        if (wide) {
+            HBox body = new HBox(20);
+            body.setPadding(new Insets(24));
+            body.setFillHeight(true);
+            VBox.setVgrow(body, Priority.ALWAYS);
+            logSection.setMaxHeight(Double.MAX_VALUE);
+            histSection.setMaxHeight(Double.MAX_VALUE);
+            HBox.setHgrow(logSection,  Priority.ALWAYS);
+            HBox.setHgrow(histSection, Priority.ALWAYS);
+            body.getChildren().addAll(logSection, histSection);
+            getChildren().add(body);
+        } else {
+            VBox vbox = new VBox(20);
+            vbox.setPadding(new Insets(20));
+            vbox.setFillWidth(true);
+            logSection.setMaxHeight(Double.MAX_VALUE);
+            logSection.setPrefWidth(Double.MAX_VALUE);
+            histSection.setMaxHeight(Double.MAX_VALUE);
+            histSection.setPrefWidth(Double.MAX_VALUE);
+            VBox.setVgrow(logSection,  Priority.SOMETIMES);
+            VBox.setVgrow(histSection, Priority.ALWAYS);
+            vbox.getChildren().addAll(logSection, histSection);
+
+            ScrollPane sp = new ScrollPane(vbox);
+            sp.setFitToWidth(true);
+            sp.setStyle(
+                "-fx-background-color: transparent; " +
+                "-fx-background: transparent; " +
+                "-fx-padding: 0;"
+            );
+            VBox.setVgrow(sp, Priority.ALWAYS);
+            getChildren().add(sp);
+        }
     }
 
     // ── Header ───────────────────────────────────────────────────────────────
