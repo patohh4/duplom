@@ -40,7 +40,7 @@ public class ExercisesPanel extends BasePanel {
     private Label progressCountLabel;
     private ProgressBar progressBar;
     private String activeFilter = "All";
-    private HBox filterChipsBox;
+    private FlowPane filterChipsBox;
     private List<Exercise> allExercises = new ArrayList<>();
 
     // Right panel
@@ -86,6 +86,7 @@ public class ExercisesPanel extends BasePanel {
     // ── Layout ────────────────────────────────────────────────────────────────
 
     private void initializeUI() {
+        // Override BasePanel defaults so banner is flush to navbar
         setStyle("-fx-background-color: " + MindDocTheme.BACKGROUND + ";");
         setPadding(new Insets(0));
         setSpacing(0);
@@ -179,8 +180,8 @@ public class ExercisesPanel extends BasePanel {
             "-fx-padding: 0;"
         );
 
-        // Filter chips
-        filterChipsBox = new HBox(8);
+        // Filter chips — FlowPane wraps when too narrow
+        filterChipsBox = new FlowPane(8, 6);
         filterChipsBox.setAlignment(Pos.CENTER_LEFT);
         rebuildFilterChips();
 
@@ -292,6 +293,7 @@ public class ExercisesPanel extends BasePanel {
         // Text
         VBox text = new VBox(4);
         HBox.setHgrow(text, Priority.ALWAYS);
+        text.setMinWidth(0); // allow shrink so right chip keeps its size
 
         Label name = new Label(ex.getTitle());
         name.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
@@ -307,9 +309,10 @@ public class ExercisesPanel extends BasePanel {
         meta.getChildren().addAll(dur, dots);
         text.getChildren().addAll(name, meta);
 
-        // Status chip
+        // Status chip — fixed width, never shrinks
         VBox right = new VBox();
         right.setAlignment(Pos.CENTER);
+        right.setMinWidth(Region.USE_PREF_SIZE);
         right.getChildren().add(buildStatusChip(status));
 
         HBox inner = new HBox(10);
@@ -374,6 +377,7 @@ public class ExercisesPanel extends BasePanel {
         }
         Label chip = new Label(text);
         chip.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
+        chip.setMinWidth(Region.USE_PREF_SIZE); // never truncate
         chip.setStyle(
             "-fx-background-color: " + bg + "; " +
             "-fx-text-fill: " + fg + "; " +
@@ -473,7 +477,7 @@ public class ExercisesPanel extends BasePanel {
         titleLbl.setTextFill(Color.WHITE);
         titleLbl.setWrapText(true);
 
-        HBox chipRow = new HBox(8);
+        FlowPane chipRow = new FlowPane(8, 6);
         chipRow.setAlignment(Pos.CENTER_LEFT);
         chipRow.getChildren().addAll(
             detailChip("📁 " + ex.getCategory(), "#ffffff44", "white"),
@@ -605,6 +609,7 @@ public class ExercisesPanel extends BasePanel {
     private Label detailChip(String text, String bg, String fg) {
         Label l = new Label(text);
         l.setFont(Font.font("Segoe UI", 11));
+        l.setMinWidth(Region.USE_PREF_SIZE);
         l.setStyle(
             "-fx-background-color: " + bg + "; " +
             "-fx-text-fill: " + fg + "; " +
@@ -617,12 +622,13 @@ public class ExercisesPanel extends BasePanel {
     private Label buildStatusChipLarge(String status) {
         String text, bg, fg;
         switch (status) {
-            case "completed":   text = "✓ Completed";  bg = "#d1fae5"; fg = "#065f46"; break;
+            case "completed":   text = "✓ Completed";   bg = "#d1fae5"; fg = "#065f46"; break;
             case "in_progress": text = "⏳ In Progress"; bg = "#fef3c7"; fg = "#92400e"; break;
             default:            text = "🆕 Not Started"; bg = "#f1f5f9"; fg = "#6b7280";
         }
         Label l = new Label(text);
         l.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+        l.setMinWidth(Region.USE_PREF_SIZE);
         l.setStyle(
             "-fx-background-color: " + bg + "; " +
             "-fx-text-fill: " + fg + "; " +
