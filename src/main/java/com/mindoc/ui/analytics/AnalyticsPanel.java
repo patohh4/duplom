@@ -7,12 +7,17 @@ import com.mindoc.ui.common.BasePanel;
 import com.mindoc.ui.theme.MindDocTheme;
 import com.mindoc.util.I18n;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.control.*;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import org.slf4j.Logger;
@@ -22,16 +27,13 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.*;
 
-/**
- * Panel for analytics and mood statistics
- */
 public class AnalyticsPanel extends BasePanel {
     private static final Logger logger = LoggerFactory.getLogger(AnalyticsPanel.class);
-    
+
     private int currentUserId;
     private DatabaseManager databaseManager;
     private MoodEntryRepository moodEntryRepository;
-    
+
     private Canvas moodChartCanvas;
     private Canvas statsCanvas;
     private Label averageMoodLabel;
@@ -39,123 +41,168 @@ public class AnalyticsPanel extends BasePanel {
     private Label lowestMoodLabel;
     private Label entriesCountLabel;
     private Label titleLabel;
-    
+
+    // sparkline mini-bars for each stat card
+    private ProgressBar avgBar, bestBar, toughBar, totalBar;
+
     public AnalyticsPanel(int userId, DatabaseManager databaseManager) {
         this.currentUserId = userId;
         this.databaseManager = databaseManager;
         this.moodEntryRepository = new MoodEntryRepository(databaseManager.getConnection());
-        
         initializeUI();
         refresh();
     }
-    
+
+    // ── Layout ────────────────────────────────────────────────────────────────
+
     private void initializeUI() {
-        setStyle("-fx-background-color: " + MindDocTheme.BACKGROUND + ";");
-        setPadding(new Insets(28));
-        setSpacing(16);
+        // Override BasePanel defaults — flush banner
+        setStyle("-fx-background-color: " + MindDocTheme.BACKGROUND + "; -fx-padding: 0;");
+        setPadding(new Insets(0));
+        setSpacing(0);
+        setFillWidth(true);
 
-        // Header banner
-        HBox header = createHeaderBanner();
-        titleLabel = null;
-        getChildren().add(header);
+        getChildren().add(buildHeaderBanner());
 
-        // Title label (hidden, kept for applyLanguage)
         titleLabel = new Label("📊 Analytics & Statistics");
         titleLabel.setVisible(false);
         titleLabel.setManaged(false);
         getChildren().add(titleLabel);
 
-        // Stats cards
-        HBox statsContainer = createStatsCards();
-        getChildren().add(statsContainer);
+        // Body with padding
+        VBox body = new VBox(20);
+        body.setPadding(new Insets(24));
+        VBox.setVgrow(body, Priority.ALWAYS);
 
-        // Chart section
-        VBox chartSection = createChartSection();
-        getChildren().add(chartSection);
-        VBox.setVgrow(chartSection, javafx.scene.layout.Priority.ALWAYS);
+        body.getChildren().add(buildStatCards());
+
+        VBox charts = buildChartsSection();
+        VBox.setVgrow(charts, Priority.ALWAYS);
+        body.getChildren().add(charts);
+
+        ScrollPane sp = new ScrollPane(body);
+        sp.setFitToWidth(true);
+        sp.setStyle(
+            "-fx-background-color: transparent; " +
+            "-fx-background: transparent; " +
+            "-fx-padding: 0;"
+        );
+        VBox.setVgrow(sp, Priority.ALWAYS);
+        getChildren().add(sp);
     }
 
-    private HBox createHeaderBanner() {
-        HBox section = new HBox();
-        section.setStyle(
+    // ── Header banner ─────────────────────────────────────────────────────────
+
+    private HBox buildHeaderBanner() {
+        HBox banner = new HBox();
+        banner.setAlignment(Pos.CENTER_LEFT);
+        banner.setPadding(new Insets(24, 36, 24, 36));
+        banner.setStyle(
             "-fx-background-color: linear-gradient(from 0% 0% to 100% 0%, " +
-                MindDocTheme.PRIMARY + ", " + MindDocTheme.SECONDARY + "); " +
-            "-fx-background-radius: 16; " +
-            "-fx-padding: 24 32; " +
-            "-fx-effect: dropshadow(three-pass-box, #00000020, 10, 0, 0, 4);"
+                MindDocTheme.PRIMARY + ", " + MindDocTheme.SECONDARY + ");"
         );
-        section.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
-        VBox textBox = new VBox(4);
-        HBox.setHgrow(textBox, javafx.scene.layout.Priority.ALWAYS);
+        VBox text = new VBox(4);
+        HBox.setHgrow(text, Priority.ALWAYS);
 
-        Label title = new Label("📊 Analytics & Statistics");
-        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
-        title.setTextFill(javafx.scene.paint.Color.WHITE);
+        Label h1 = new Label("📊 Analytics & Statistics");
+        h1.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
+        h1.setTextFill(Color.WHITE);
 
-        Label subtitle = new Label("Insights from your mood and wellness data");
-        subtitle.setFont(Font.font("Segoe UI", 13));
-        subtitle.setTextFill(javafx.scene.paint.Color.web("#d1fae5"));
+        Label h2 = new Label("Insights from your mood and wellness data");
+        h2.setFont(Font.font("Segoe UI", 13));
+        h2.setTextFill(Color.web("#d1fae5"));
 
-        textBox.getChildren().addAll(title, subtitle);
+        text.getChildren().addAll(h1, h2);
 
         Label deco = new Label("📈");
-        deco.setFont(Font.font("System", 48));
-        deco.setOpacity(0.7);
+        deco.setFont(Font.font("System", 56));
+        deco.setOpacity(0.22);
 
-        section.getChildren().addAll(textBox, deco);
-        return section;
+        banner.getChildren().addAll(text, deco);
+        return banner;
     }
 
-    private HBox createStatsCards() {
-        HBox container = new HBox(16);
-        container.setPadding(new Insets(0));
+    // ── Stat cards row ────────────────────────────────────────────────────────
 
-        Label[] labels = new Label[4];
+    private HBox buildStatCards() {
+        HBox row = new HBox(16);
+        row.setFillHeight(true);
 
-        VBox card1 = createStatCard("😊 " + I18n.t("average_mood", "Average Mood"), MindDocTheme.PRIMARY, labels, 0);
-        averageMoodLabel = labels[0];
-        container.getChildren().add(card1);
-        HBox.setHgrow(card1, javafx.scene.layout.Priority.ALWAYS);
+        Label[] valueLabels = new Label[4];
+        ProgressBar[] bars = new ProgressBar[4];
 
-        VBox card2 = createStatCard(I18n.t("best_mood", "🏆 Best Mood"), MindDocTheme.SUCCESS, labels, 1);
-        highestMoodLabel = labels[1];
-        container.getChildren().add(card2);
-        HBox.setHgrow(card2, javafx.scene.layout.Priority.ALWAYS);
+        VBox c1 = buildStatCard("😊", "Average Mood",   MindDocTheme.PRIMARY,  valueLabels, bars, 0);
+        VBox c2 = buildStatCard("🏆", "Best Mood",      MindDocTheme.SUCCESS,  valueLabels, bars, 1);
+        VBox c3 = buildStatCard("📉", "Toughest Day",   MindDocTheme.WARNING,  valueLabels, bars, 2);
+        VBox c4 = buildStatCard("📝", "Total Entries",  MindDocTheme.INFO,     valueLabels, bars, 3);
 
-        VBox card3 = createStatCard(I18n.t("tough_day", "📉 Tough Day"), MindDocTheme.WARNING, labels, 2);
-        lowestMoodLabel = labels[2];
-        container.getChildren().add(card3);
-        HBox.setHgrow(card3, javafx.scene.layout.Priority.ALWAYS);
+        averageMoodLabel  = valueLabels[0];
+        highestMoodLabel  = valueLabels[1];
+        lowestMoodLabel   = valueLabels[2];
+        entriesCountLabel = valueLabels[3];
+        avgBar    = bars[0];
+        bestBar   = bars[1];
+        toughBar  = bars[2];
+        totalBar  = bars[3];
 
-        VBox card4 = createStatCard(I18n.t("total_entries", "📝 Total Entries"), MindDocTheme.INFO, labels, 3);
-        entriesCountLabel = labels[3];
-        container.getChildren().add(card4);
-        HBox.setHgrow(card4, javafx.scene.layout.Priority.ALWAYS);
-
-        return container;
+        for (VBox c : new VBox[]{c1, c2, c3, c4}) {
+            HBox.setHgrow(c, Priority.ALWAYS);
+        }
+        row.getChildren().addAll(c1, c2, c3, c4);
+        return row;
     }
 
-    private VBox createStatCard(String title, String accentColor, Label[] out, int idx) {
-        // Accent bar at top
-        javafx.scene.layout.Region bar = new javafx.scene.layout.Region();
+    private VBox buildStatCard(String emoji, String title, String color,
+                               Label[] out, ProgressBar[] bars, int idx) {
+        // Top accent bar
+        Region bar = new Region();
         bar.setPrefHeight(4);
         bar.setMaxWidth(Double.MAX_VALUE);
-        bar.setStyle("-fx-background-color: " + accentColor + "; -fx-background-radius: 14 14 0 0;");
+        bar.setStyle("-fx-background-color: " + color + "; -fx-background-radius: 14 14 0 0;");
 
-        VBox inner = new VBox(6);
-        inner.setPadding(new Insets(14, 18, 18, 18));
+        VBox inner = new VBox(10);
+        inner.setPadding(new Insets(16, 20, 20, 20));
 
-        Label titleLabel = new Label(title);
-        titleLabel.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
-        titleLabel.setTextFill(javafx.scene.paint.Color.web(MindDocTheme.TEXT_SECONDARY));
+        // Title row: emoji circle + label
+        HBox titleRow = new HBox(10);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
 
-        Label valueLabel = new Label("--");
-        valueLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 32));
-        valueLabel.setTextFill(javafx.scene.paint.Color.web(accentColor));
-        out[idx] = valueLabel;
+        StackPane iconCircle = new StackPane();
+        iconCircle.setStyle(
+            "-fx-background-color: " + color + "22; " +
+            "-fx-background-radius: 10; " +
+            "-fx-min-width: 36; -fx-min-height: 36; " +
+            "-fx-max-width: 36; -fx-max-height: 36;"
+        );
+        Label emojiLbl = new Label(emoji);
+        emojiLbl.setFont(Font.font("System", 16));
+        iconCircle.getChildren().add(emojiLbl);
 
-        inner.getChildren().addAll(titleLabel, valueLabel);
+        Label titleLbl = new Label(title);
+        titleLbl.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
+        titleLbl.setTextFill(Color.web(MindDocTheme.TEXT_SECONDARY));
+        titleRow.getChildren().addAll(iconCircle, titleLbl);
+
+        // Big number
+        Label valueLbl = new Label("--");
+        valueLbl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 36));
+        valueLbl.setTextFill(Color.web(color));
+        out[idx] = valueLbl;
+
+        // Progress bar (visual fill from 0-10 for mood, or count-based)
+        ProgressBar pb = new ProgressBar(0);
+        pb.setMaxWidth(Double.MAX_VALUE);
+        pb.setPrefHeight(5);
+        pb.setStyle(
+            "-fx-accent: " + color + "; " +
+            "-fx-background-color: " + color + "22; " +
+            "-fx-background-radius: 3; " +
+            "-fx-padding: 0;"
+        );
+        bars[idx] = pb;
+
+        inner.getChildren().addAll(titleRow, valueLbl, pb);
 
         VBox card = new VBox(0);
         card.setStyle(
@@ -168,223 +215,298 @@ public class AnalyticsPanel extends BasePanel {
         return card;
     }
 
-    private VBox createChartSection() {
-        VBox section = new VBox(15);
+    // ── Charts section ────────────────────────────────────────────────────────
+
+    private VBox buildChartsSection() {
+        VBox section = new VBox(0);
         section.setStyle(
             "-fx-background-color: white; " +
-            "-fx-background-radius: 14; " +
-            "-fx-border-radius: 14; " +
-            "-fx-padding: 24; " +
-            "-fx-effect: dropshadow(three-pass-box, #00000014, 8, 0, 0, 2);"
+            "-fx-background-radius: 16; " +
+            "-fx-border-radius: 16; " +
+            "-fx-effect: dropshadow(three-pass-box, #00000014, 10, 0, 0, 3);"
         );
-        
-        Label chartTitle = new Label(I18n.t("analytics_trend", "Mood Trend (Last 30 Days)"));
-        chartTitle.setFont(Font.font("System", FontWeight.BOLD, 14));
-        section.getChildren().add(chartTitle);
-        
-        // Chart canvas
-        moodChartCanvas = new Canvas(800, 250);
-        section.getChildren().add(moodChartCanvas);
-        VBox.setVgrow(moodChartCanvas, javafx.scene.layout.Priority.ALWAYS);
-        
-        // Stats canvas
-        Label statsTitle = new Label(I18n.t("weekly_summary", "Weekly Summary"));
-        statsTitle.setFont(Font.font("System", FontWeight.BOLD, 14));
-        statsTitle.setPadding(new Insets(15, 0, 0, 0));
-        section.getChildren().add(statsTitle);
-        
-        statsCanvas = new Canvas(800, 200);
-        section.getChildren().add(statsCanvas);
-        
+
+        // Accent bar
+        Region accentBar = new Region();
+        accentBar.setPrefHeight(4);
+        accentBar.setMaxWidth(Double.MAX_VALUE);
+        accentBar.setStyle(
+            "-fx-background-color: linear-gradient(from 0% 0% to 100% 0%, " +
+                MindDocTheme.PRIMARY + ", " + MindDocTheme.SECONDARY + "); " +
+            "-fx-background-radius: 16 16 0 0;"
+        );
+
+        VBox inner = new VBox(24);
+        inner.setPadding(new Insets(22, 24, 24, 24));
+
+        // ── Trend chart ────────────────────────────────────────────────────
+        HBox trendHeader = new HBox(8);
+        trendHeader.setAlignment(Pos.CENTER_LEFT);
+        Region trendDot = new Region();
+        trendDot.setPrefWidth(4); trendDot.setPrefHeight(16);
+        trendDot.setStyle("-fx-background-color: " + MindDocTheme.PRIMARY + "; -fx-background-radius: 2;");
+        Label trendTitle = new Label("Mood Trend — Last 30 Days");
+        trendTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        trendTitle.setTextFill(Color.web(MindDocTheme.TEXT_PRIMARY));
+        trendHeader.getChildren().addAll(trendDot, trendTitle);
+
+        moodChartCanvas = new Canvas(760, 240);
+        VBox trendBox = new VBox(12, trendHeader, moodChartCanvas);
+
+        // ── Weekly bar chart ───────────────────────────────────────────────
+        HBox weekHeader = new HBox(8);
+        weekHeader.setAlignment(Pos.CENTER_LEFT);
+        Region weekDot = new Region();
+        weekDot.setPrefWidth(4); weekDot.setPrefHeight(16);
+        weekDot.setStyle("-fx-background-color: " + MindDocTheme.INFO + "; -fx-background-radius: 2;");
+        Label weekTitle = new Label("Weekly Mood Summary");
+        weekTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        weekTitle.setTextFill(Color.web(MindDocTheme.TEXT_PRIMARY));
+        weekHeader.getChildren().addAll(weekDot, weekTitle);
+
+        statsCanvas = new Canvas(760, 180);
+        VBox weekBox = new VBox(12, weekHeader, statsCanvas);
+
+        inner.getChildren().addAll(trendBox, new Separator(), weekBox);
+        section.getChildren().addAll(accentBar, inner);
+
+        // make canvases resize with the panel
+        section.widthProperty().addListener((obs, ov, nv) -> {
+            double w = nv.doubleValue() - 48;
+            if (w > 0) {
+                moodChartCanvas.setWidth(w);
+                statsCanvas.setWidth(w);
+                drawMoodChart();
+                drawWeeklyStats();
+            }
+        });
+
         return section;
     }
-    
+
+    // helper separator
+    private static class Separator extends Region {
+        Separator() {
+            setPrefHeight(1);
+            setMaxWidth(Double.MAX_VALUE);
+            setStyle("-fx-background-color: #f1f5f9;");
+        }
+    }
+
+    // ── Chart drawing ─────────────────────────────────────────────────────────
+
     private void drawMoodChart() {
         try {
             List<MoodEntry> entries = moodEntryRepository.findByUserId(currentUserId);
-            
             GraphicsContext gc = moodChartCanvas.getGraphicsContext2D();
-            double width = moodChartCanvas.getWidth();
-            double height = moodChartCanvas.getHeight();
-            
-            // Clear canvas
+            double w = moodChartCanvas.getWidth();
+            double h = moodChartCanvas.getHeight();
+            double padL = 44, padB = 36, padT = 14, padR = 16;
+
+            gc.clearRect(0, 0, w, h);
             gc.setFill(Color.WHITE);
-            gc.fillRect(0, 0, width, height);
-            
+            gc.fillRect(0, 0, w, h);
+
             if (entries.isEmpty()) {
-                gc.setFont(Font.font("System", 14));
-                gc.setFill(Color.web("#999"));
-                gc.fillText(I18n.t("no_mood_data", "No mood data available yet"), width / 2 - 60, height / 2);
+                gc.setFont(Font.font("Segoe UI", 14));
+                gc.setFill(Color.web(MindDocTheme.TEXT_MUTED));
+                gc.fillText("No mood data yet — start tracking your mood!", padL + 20, h / 2);
                 return;
             }
-            
-            // Draw axes
-            gc.setStroke(Color.web("#ddd"));
-            gc.setLineWidth(1);
-            
-            // Y-axis
-            gc.strokeLine(40, 10, 40, height - 40);
-            
-            // X-axis
-            gc.strokeLine(40, height - 40, width - 20, height - 40);
-            
-            // Draw grid lines
-            for (int i = 1; i <= 10; i++) {
-                double y = height - 40 - (i * (height - 50) / 10);
-                gc.strokeLine(35, y, width - 20, y);
-                
-                gc.setFill(Color.web("#999"));
-                gc.setFont(Font.font("System", 10));
-                gc.fillText(String.valueOf(i), 20, y + 5);
+
+            double chartW = w - padL - padR;
+            double chartH = h - padT - padB;
+
+            // Grid lines + Y labels
+            gc.setFont(Font.font("Segoe UI", 10));
+            for (int i = 0; i <= 10; i += 2) {
+                double y = h - padB - (i / 10.0 * chartH);
+                gc.setStroke(i == 0 ? Color.web("#d1d5db") : Color.web("#f3f4f6"));
+                gc.setLineWidth(i == 0 ? 1.5 : 1);
+                gc.strokeLine(padL, y, w - padR, y);
+                gc.setFill(Color.web(MindDocTheme.TEXT_MUTED));
+                gc.fillText(String.valueOf(i), padL - 22, y + 4);
             }
-            
-            // Draw mood plots
-            gc.setStroke(Color.web(MindDocTheme.PRIMARY));
-            gc.setLineWidth(2);
-            
-            double pointSpacing = (width - 60) / Math.max(entries.size() - 1, 1);
-            
+
+            // Gradient fill under the line
+            double ptSpacing = entries.size() > 1 ? chartW / (entries.size() - 1) : chartW;
+            double[] xs = new double[entries.size()];
+            double[] ys = new double[entries.size()];
             for (int i = 0; i < entries.size(); i++) {
-                double x = 40 + i * pointSpacing;
-                double y = height - 40 - (entries.get(i).getMoodLevel() * (height - 50) / 10);
-                
-                // Draw point
+                xs[i] = padL + i * ptSpacing;
+                ys[i] = h - padB - (entries.get(i).getMoodLevel() / 10.0 * chartH);
+            }
+
+            // Fill polygon
+            gc.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web(MindDocTheme.PRIMARY + "44")),
+                new Stop(1, Color.web(MindDocTheme.PRIMARY + "05"))));
+            double[] fillX = new double[entries.size() + 2];
+            double[] fillY = new double[entries.size() + 2];
+            System.arraycopy(xs, 0, fillX, 0, entries.size());
+            fillX[entries.size()]     = xs[entries.size() - 1];
+            fillX[entries.size() + 1] = xs[0];
+            System.arraycopy(ys, 0, fillY, 0, entries.size());
+            fillY[entries.size()]     = h - padB;
+            fillY[entries.size() + 1] = h - padB;
+            gc.fillPolygon(fillX, fillY, fillX.length);
+
+            // Line
+            gc.setStroke(Color.web(MindDocTheme.PRIMARY));
+            gc.setLineWidth(2.5);
+            gc.beginPath();
+            gc.moveTo(xs[0], ys[0]);
+            for (int i = 1; i < entries.size(); i++) gc.lineTo(xs[i], ys[i]);
+            gc.stroke();
+
+            // Data points + date labels
+            for (int i = 0; i < entries.size(); i++) {
+                // white halo
+                gc.setFill(Color.WHITE);
+                gc.fillOval(xs[i] - 5, ys[i] - 5, 10, 10);
                 gc.setFill(Color.web(MindDocTheme.PRIMARY));
-                gc.fillOval(x - 3, y - 3, 6, 6);
-                
-                // Draw line to next point
-                if (i < entries.size() - 1) {
-                    double nextX = 40 + (i + 1) * pointSpacing;
-                    double nextY = height - 40 - (entries.get(i + 1).getMoodLevel() * (height - 50) / 10);
-                    gc.strokeLine(x, y, nextX, nextY);
+                gc.fillOval(xs[i] - 4, ys[i] - 4, 8, 8);
+
+                // date label (every nth)
+                int step = Math.max(1, entries.size() / 8);
+                if (i % step == 0 || i == entries.size() - 1) {
+                    String dateStr = entries.get(i).getEntryDate().toString();
+                    gc.setFill(Color.web(MindDocTheme.TEXT_MUTED));
+                    gc.setFont(Font.font("Segoe UI", 9));
+                    gc.fillText(dateStr.substring(5), xs[i] - 10, h - padB + 14);
                 }
             }
-            
+
         } catch (SQLException e) {
             logger.error("Error drawing mood chart", e);
         }
     }
-    
+
     private void drawWeeklyStats() {
         try {
             List<MoodEntry> entries = moodEntryRepository.findByUserId(currentUserId);
-            
-            // Group by day of week
-            Map<String, List<Double>> dailyValues = new LinkedHashMap<>();
-            String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
-            
-            for (String day : days) {
-                dailyValues.put(day, new ArrayList<>());
-            }
-            
-            // Calculate daily averages properly
-            LocalDate today = LocalDate.now();
-            for (MoodEntry entry : entries) {
-                try {
-                    LocalDate entryDate = entry.getEntryDate();
-                    int dayOfWeek = entryDate.getDayOfWeek().getValue() - 1;
-                    if (dayOfWeek >= 0 && dayOfWeek < 7) {
-                        dailyValues.get(days[dayOfWeek]).add((double) entry.getMoodLevel());
-                    }
-                } catch (Exception e) {
-                    logger.warn("Skipping invalid entry date");
-                }
-            }
-            
             GraphicsContext gc = statsCanvas.getGraphicsContext2D();
-            double width = statsCanvas.getWidth();
-            double height = statsCanvas.getHeight();
-            
-            // Clear canvas
+            double w = statsCanvas.getWidth();
+            double h = statsCanvas.getHeight();
+            double padL = 20, padB = 36, padT = 10;
+
+            gc.clearRect(0, 0, w, h);
             gc.setFill(Color.WHITE);
-            gc.fillRect(0, 0, width, height);
-            
-            // Draw bar chart
-            double barWidth = (width - 60) / 7;
-            int index = 0;
-            
-            for (Map.Entry<String, List<Double>> dayEntry : dailyValues.entrySet()) {
-                double average = dayEntry.getValue().isEmpty() ? 0 : 
-                    dayEntry.getValue().stream().mapToDouble(Double::doubleValue).average().orElse(0);
-                double barHeight = (average * (height - 60)) / 10;
-                double x = 40 + index * barWidth;
-                double y = height - 40 - barHeight;
-                
-                // Draw bar
-                gc.setFill(Color.web(MindDocTheme.PRIMARY));
-                gc.fillRect(x + 2, y, barWidth - 5, barHeight);
-                
-                // Draw label
-                gc.setFill(Color.web("#666"));
-                gc.setFont(Font.font("System", 10));
-                gc.fillText(dayEntry.getKey(), x + 8, height - 20);
-                
-                // Draw value on top of bar if exists
-                if (average > 0) {
-                    gc.setFill(Color.web(MindDocTheme.PRIMARY));
-                    gc.setFont(Font.font("System", 10));
-                    gc.fillText(String.format("%.1f", average), x + 5, y - 5);
+            gc.fillRect(0, 0, w, h);
+
+            String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+            Map<String, List<Double>> dailyValues = new LinkedHashMap<>();
+            for (String d : days) dailyValues.put(d, new ArrayList<>());
+
+            for (MoodEntry e : entries) {
+                try {
+                    LocalDate ld = e.getEntryDate();
+                    String dayKey = days[ld.getDayOfWeek().getValue() - 1];
+                    dailyValues.get(dayKey).add((double) e.getMoodLevel());
+                } catch (Exception ex) {
+                    logger.warn("Skipping entry: {}", ex.getMessage());
                 }
-                
-                index++;
             }
-            
+
+            double chartH = h - padT - padB;
+            double barW   = (w - padL) / 7.0;
+
+            int idx = 0;
+            for (Map.Entry<String, List<Double>> de : dailyValues.entrySet()) {
+                double avg = de.getValue().isEmpty() ? 0
+                    : de.getValue().stream().mapToDouble(d -> d).average().orElse(0);
+                double barH = avg / 10.0 * chartH;
+                double x    = padL + idx * barW;
+                double y    = h - padB - barH;
+
+                if (avg > 0) {
+                    // Colored gradient bar
+                    String barColor = avg >= 7 ? MindDocTheme.SUCCESS
+                        : avg >= 4 ? MindDocTheme.PRIMARY
+                        : MindDocTheme.WARNING;
+
+                    gc.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                        new Stop(0, Color.web(barColor)),
+                        new Stop(1, Color.web(barColor + "88"))));
+                    double bw = barW * 0.6;
+                    double bx = x + (barW - bw) / 2;
+                    // Rounded top (simulate with arc)
+                    gc.fillRoundRect(bx, y, bw, barH, 6, 6);
+
+                    // Value on top
+                    gc.setFill(Color.web(barColor));
+                    gc.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+                    String val = String.format(Locale.US, "%.1f", avg);
+                    gc.fillText(val, bx + bw / 2 - 8, y - 4);
+                } else {
+                    // Empty bar placeholder
+                    gc.setFill(Color.web("#f3f4f6"));
+                    double bw = barW * 0.6;
+                    double bx = x + (barW - bw) / 2;
+                    gc.fillRoundRect(bx, h - padB - 4, bw, 4, 3, 3);
+                }
+
+                // Day label
+                gc.setFill(Color.web(MindDocTheme.TEXT_SECONDARY));
+                gc.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+                gc.fillText(de.getKey(), x + barW / 2 - 10, h - padB + 16);
+
+                idx++;
+            }
+
         } catch (SQLException e) {
             logger.error("Error drawing weekly stats", e);
         }
     }
-    
+
+    // ── Data ─────────────────────────────────────────────────────────────────
+
     @Override
     public void refresh() {
         try {
             List<MoodEntry> entries = moodEntryRepository.findByUserId(currentUserId);
-            
+
             if (entries.isEmpty()) {
                 averageMoodLabel.setText("N/A");
                 highestMoodLabel.setText("N/A");
                 lowestMoodLabel.setText("N/A");
                 entriesCountLabel.setText("0");
+                if (avgBar  != null) avgBar.setProgress(0);
+                if (bestBar != null) bestBar.setProgress(0);
+                if (toughBar!= null) toughBar.setProgress(0);
+                if (totalBar!= null) totalBar.setProgress(0);
+                drawMoodChart();
+                drawWeeklyStats();
                 return;
             }
-            
-            // Calculate statistics
-            double average = entries.stream()
-                .mapToInt(MoodEntry::getMoodLevel)
-                .average()
-                .orElse(0);
-            
-            int highest = entries.stream()
-                .mapToInt(MoodEntry::getMoodLevel)
-                .max()
-                .orElse(0);
-            
-            int lowest = entries.stream()
-                .mapToInt(MoodEntry::getMoodLevel)
-                .min()
-                .orElse(0);
-            
-            averageMoodLabel.setText(String.format("%.1f", average));
+
+            double average = entries.stream().mapToInt(MoodEntry::getMoodLevel).average().orElse(0);
+            int    highest = entries.stream().mapToInt(MoodEntry::getMoodLevel).max().orElse(0);
+            int    lowest  = entries.stream().mapToInt(MoodEntry::getMoodLevel).min().orElse(0);
+            int    total   = entries.size();
+
+            // Use Locale.US so decimal separator is always "." not ","
+            averageMoodLabel.setText(String.format(Locale.US, "%.1f", average));
             highestMoodLabel.setText(String.valueOf(highest));
             lowestMoodLabel.setText(String.valueOf(lowest));
-            entriesCountLabel.setText(String.valueOf(entries.size()));
-            
-            // Draw charts
+            entriesCountLabel.setText(String.valueOf(total));
+
+            // Progress bars (0-10 scale for mood, capped at 50 for entries)
+            if (avgBar  != null) avgBar.setProgress(average / 10.0);
+            if (bestBar != null) bestBar.setProgress(highest / 10.0);
+            if (toughBar!= null) toughBar.setProgress(lowest / 10.0);
+            if (totalBar!= null) totalBar.setProgress(Math.min(total / 50.0, 1.0));
+
             drawMoodChart();
             drawWeeklyStats();
-            applyLanguage(languageFromI18n());
-            
+
         } catch (SQLException e) {
             logger.error("Error refreshing analytics", e);
         }
     }
 
     public void applyLanguage(String language) {
-        if (titleLabel != null) {
+        if (titleLabel != null)
             titleLabel.setText(I18n.t("analytics", "📊 Analytics & Statistics"));
-        }
-    }
-
-    private String languageFromI18n() {
-        return I18n.isUkrainian() ? "Українська" : "English";
     }
 }

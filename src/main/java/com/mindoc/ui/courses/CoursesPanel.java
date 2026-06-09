@@ -86,7 +86,8 @@ public class CoursesPanel extends BasePanel {
     // ── Layout ────────────────────────────────────────────────────────────────
 
     private void initializeUI() {
-        setStyle("-fx-background-color: " + MindDocTheme.BACKGROUND + ";");
+        // -fx-padding:0 in inline style overrides any CSS selector (including BasePanel)
+        setStyle("-fx-background-color: " + MindDocTheme.BACKGROUND + "; -fx-padding: 0; -fx-spacing: 0;");
         setPadding(new Insets(0));
         setSpacing(0);
         setFillWidth(true);

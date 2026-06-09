@@ -86,8 +86,8 @@ public class ExercisesPanel extends BasePanel {
     // ── Layout ────────────────────────────────────────────────────────────────
 
     private void initializeUI() {
-        // Override BasePanel defaults so banner is flush to navbar
-        setStyle("-fx-background-color: " + MindDocTheme.BACKGROUND + ";");
+        // -fx-padding:0 in inline style overrides any CSS selector (including BasePanel)
+        setStyle("-fx-background-color: " + MindDocTheme.BACKGROUND + "; -fx-padding: 0; -fx-spacing: 0;");
         setPadding(new Insets(0));
         setSpacing(0);
         setFillWidth(true);
@@ -305,6 +305,7 @@ public class ExercisesPanel extends BasePanel {
         Label dur = new Label("⏱ " + ex.getDuration() + " min");
         dur.setFont(Font.font("Segoe UI", 11));
         dur.setTextFill(Color.web(MindDocTheme.TEXT_MUTED));
+        dur.setMinWidth(Region.USE_PREF_SIZE); // never truncate duration
         HBox dots = buildDifficultyDots(parseDifficulty(ex.getDifficulty()), color);
         meta.getChildren().addAll(dur, dots);
         text.getChildren().addAll(name, meta);
