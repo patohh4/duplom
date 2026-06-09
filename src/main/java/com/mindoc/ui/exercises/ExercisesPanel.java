@@ -9,375 +9,655 @@ import com.mindoc.ui.theme.MindDocTheme;
 import com.mindoc.util.I18n;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.scene.text.TextAlignment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-/**
- * Panel for coping exercises and wellness activities
- */
 public class ExercisesPanel extends BasePanel {
     private static final Logger logger = LoggerFactory.getLogger(ExercisesPanel.class);
-    
+
     private int currentUserId;
     private DatabaseManager databaseManager;
     private ExerciseRepository exerciseRepository;
     private LearningProgressRepository progressRepository;
-    
-    private ListView<Exercise> exerciseListView;
-    private VBox exerciseDetailsPanel;
-    private Label timerLabel;
-    private Button startButton;
-    private ComboBox<String> categoryCombo;
+
     private Exercise selectedExercise;
+    private Button startButton;
     private final Map<Integer, String> exerciseStatuses = new HashMap<>();
+
+    // Left panel
+    private VBox exerciseCardsBox;
+    private Label progressCountLabel;
+    private ProgressBar progressBar;
+    private String activeFilter = "All";
+    private HBox filterChipsBox;
+    private List<Exercise> allExercises = new ArrayList<>();
+
+    // Right panel
+    private VBox exerciseDetailsPanel;
+
+    // i18n
     private Label titleLabel;
-    
+
     public ExercisesPanel(int userId, DatabaseManager databaseManager) {
         this.currentUserId = userId;
         this.databaseManager = databaseManager;
         this.exerciseRepository = new ExerciseRepository(databaseManager.getConnection());
         this.progressRepository = new LearningProgressRepository(databaseManager.getConnection());
-        
         initializeUI();
         refresh();
     }
-    
+
+    // ── Category meta ─────────────────────────────────────────────────────────
+
+    private static final Map<String, String[]> CAT_META = new LinkedHashMap<>();
+    static {
+        CAT_META.put("All",          new String[]{"#10B981", "💪"});
+        CAT_META.put("breathing",    new String[]{"#06b6d4", "🌬"});
+        CAT_META.put("grounding",    new String[]{"#10B981", "🌿"});
+        CAT_META.put("relaxation",   new String[]{"#8b5cf6", "😌"});
+        CAT_META.put("cognitive",    new String[]{"#f59e0b", "🧠"});
+        CAT_META.put("mindfulness",  new String[]{"#3b82f6", "🧘"});
+        CAT_META.put("meditation",   new String[]{"#ec4899", "🕯"});
+    }
+
+    private String catColor(String cat) {
+        if (cat == null) return "#10B981";
+        String[] m = CAT_META.get(cat.toLowerCase());
+        return m != null ? m[0] : "#10B981";
+    }
+
+    private String catEmoji(String cat) {
+        if (cat == null) return "🏃";
+        String[] m = CAT_META.get(cat.toLowerCase());
+        return m != null ? m[1] : "🏃";
+    }
+
+    // ── Layout ────────────────────────────────────────────────────────────────
+
     private void initializeUI() {
         setStyle("-fx-background-color: " + MindDocTheme.BACKGROUND + ";");
-        setPadding(new Insets(28));
-        setSpacing(16);
+        setPadding(new Insets(0));
+        setSpacing(0);
         setFillWidth(true);
 
-        // Header banner
-        HBox header = createHeaderBanner("💪 Coping Exercises", "Choose and complete wellness exercises at your own pace", "🏋");
-        getChildren().add(header);
+        getChildren().add(buildHeaderBanner());
 
-        // Title (hidden — header replaces it visually, kept for applyLanguage)
         titleLabel = new Label("💪 Coping Exercises");
         titleLabel.setVisible(false);
         titleLabel.setManaged(false);
-        
-        // Main container with two columns
-        HBox mainContainer = new HBox(20);
-        mainContainer.setPadding(new Insets(0));
-        mainContainer.setFillHeight(true);
-        mainContainer.setMaxWidth(Double.MAX_VALUE);
-        
-        // Left side - Exercise list
-        VBox listSection = createListSection();
-        mainContainer.getChildren().add(listSection);
-        HBox.setHgrow(listSection, javafx.scene.layout.Priority.ALWAYS);
-        
-        // Right side - Exercise details
-        exerciseDetailsPanel = createDetailsPanel();
-        mainContainer.getChildren().add(exerciseDetailsPanel);
-        HBox.setHgrow(exerciseDetailsPanel, javafx.scene.layout.Priority.ALWAYS);
-        
-        getChildren().add(mainContainer);
-        VBox.setVgrow(mainContainer, javafx.scene.layout.Priority.ALWAYS);
+        getChildren().add(titleLabel);
+
+        HBox body = new HBox(20);
+        body.setPadding(new Insets(24));
+        body.setFillHeight(true);
+        VBox.setVgrow(body, Priority.ALWAYS);
+
+        VBox left  = buildLeftPanel();
+        exerciseDetailsPanel = buildDetailsPlaceholder();
+
+        HBox.setHgrow(left,                 Priority.ALWAYS);
+        HBox.setHgrow(exerciseDetailsPanel, Priority.ALWAYS);
+        body.getChildren().addAll(left, exerciseDetailsPanel);
+        getChildren().add(body);
     }
-    
-    private HBox createHeaderBanner(String title, String subtitle, String emoji) {
-        HBox section = new HBox();
-        section.setStyle(
+
+    // ── Header ────────────────────────────────────────────────────────────────
+
+    private HBox buildHeaderBanner() {
+        HBox banner = new HBox();
+        banner.setAlignment(Pos.CENTER_LEFT);
+        banner.setPadding(new Insets(24, 36, 24, 36));
+        banner.setStyle(
             "-fx-background-color: linear-gradient(from 0% 0% to 100% 0%, " +
-                MindDocTheme.PRIMARY + ", " + MindDocTheme.SECONDARY + "); " +
-            "-fx-background-radius: 16; " +
-            "-fx-padding: 24 32; " +
-            "-fx-effect: dropshadow(three-pass-box, #00000020, 10, 0, 0, 4);"
+                MindDocTheme.PRIMARY + ", " + MindDocTheme.SECONDARY + ");"
         );
-        section.setAlignment(Pos.CENTER_LEFT);
 
-        VBox textBox = new VBox(4);
-        HBox.setHgrow(textBox, javafx.scene.layout.Priority.ALWAYS);
+        VBox text = new VBox(4);
+        HBox.setHgrow(text, Priority.ALWAYS);
 
-        Label titleLbl = new Label(title);
-        titleLbl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
-        titleLbl.setTextFill(javafx.scene.paint.Color.WHITE);
+        Label h1 = new Label("💪 Coping Exercises");
+        h1.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
+        h1.setTextFill(Color.WHITE);
 
-        Label subtitleLbl = new Label(subtitle);
-        subtitleLbl.setFont(Font.font("Segoe UI", 13));
-        subtitleLbl.setTextFill(javafx.scene.paint.Color.web("#d1fae5"));
+        Label h2 = new Label("Choose and complete wellness exercises at your own pace");
+        h2.setFont(Font.font("Segoe UI", 13));
+        h2.setTextFill(Color.web("#d1fae5"));
 
-        textBox.getChildren().addAll(titleLbl, subtitleLbl);
+        text.getChildren().addAll(h1, h2);
 
-        Label deco = new Label(emoji);
-        deco.setFont(Font.font("System", 48));
-        deco.setOpacity(0.7);
+        Label deco = new Label("🏋");
+        deco.setFont(Font.font("System", 56));
+        deco.setOpacity(0.22);
 
-        section.getChildren().addAll(textBox, deco);
-        return section;
+        banner.getChildren().addAll(text, deco);
+        return banner;
     }
 
-    private VBox createListSection() {
-        VBox section = new VBox(12);
-        section.setStyle(
+    // ── Left panel ────────────────────────────────────────────────────────────
+
+    private VBox buildLeftPanel() {
+        Region bar = accentBar(MindDocTheme.PRIMARY);
+
+        VBox inner = new VBox(14);
+        inner.setPadding(new Insets(18, 20, 20, 20));
+        VBox.setVgrow(inner, Priority.ALWAYS);
+
+        // Header row
+        HBox headerRow = new HBox(10);
+        headerRow.setAlignment(Pos.CENTER_LEFT);
+
+        Label sectionTitle = new Label("Available Exercises");
+        sectionTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
+        sectionTitle.setTextFill(Color.web(MindDocTheme.TEXT_PRIMARY));
+        HBox.setHgrow(sectionTitle, Priority.ALWAYS);
+
+        progressCountLabel = new Label("0 / 0 done");
+        progressCountLabel.setFont(Font.font("Segoe UI", 11));
+        progressCountLabel.setTextFill(Color.web(MindDocTheme.TEXT_MUTED));
+
+        headerRow.getChildren().addAll(sectionTitle, progressCountLabel);
+
+        // Progress bar
+        progressBar = new ProgressBar(0);
+        progressBar.setMaxWidth(Double.MAX_VALUE);
+        progressBar.setPrefHeight(6);
+        progressBar.setStyle(
+            "-fx-accent: " + MindDocTheme.PRIMARY + "; " +
+            "-fx-background-color: #e5e7eb; " +
+            "-fx-background-radius: 3; " +
+            "-fx-padding: 0;"
+        );
+
+        // Filter chips
+        filterChipsBox = new HBox(8);
+        filterChipsBox.setAlignment(Pos.CENTER_LEFT);
+        rebuildFilterChips();
+
+        // Card list
+        exerciseCardsBox = new VBox(10);
+        exerciseCardsBox.setStyle("-fx-background-color: transparent;");
+
+        ScrollPane sp = new ScrollPane(exerciseCardsBox);
+        sp.setFitToWidth(true);
+        sp.setStyle(
+            "-fx-background-color: transparent; " +
+            "-fx-background: transparent; " +
+            "-fx-padding: 0;"
+        );
+        VBox.setVgrow(sp, Priority.ALWAYS);
+
+        inner.getChildren().addAll(headerRow, progressBar, filterChipsBox, sp);
+
+        VBox card = new VBox(0);
+        card.setMinWidth(300);
+        card.setPrefWidth(380);
+        card.setStyle(
             "-fx-background-color: white; " +
-            "-fx-background-radius: 14; " +
-            "-fx-border-radius: 14; " +
-            "-fx-padding: 20; " +
-            "-fx-effect: dropshadow(three-pass-box, #00000014, 8, 0, 0, 2);"
+            "-fx-background-radius: 16; " +
+            "-fx-border-radius: 16; " +
+            "-fx-effect: dropshadow(three-pass-box, #00000014, 10, 0, 0, 3);"
         );
-        section.setMinWidth(320);
-        section.setPrefWidth(380);
-        section.setMaxWidth(Double.MAX_VALUE);
-
-        Label sectionTitle = new Label(I18n.t("available_exercises", "Available Exercises"));
-        sectionTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
-        sectionTitle.setTextFill(javafx.scene.paint.Color.web(MindDocTheme.TEXT_PRIMARY));
-        section.getChildren().add(sectionTitle);
-        
-        // Filter
-        HBox filterBox = new HBox(10);
-        Label filterLabel = new Label(I18n.t("category", "Category:"));
-        categoryCombo = new ComboBox<>();
-        categoryCombo.getItems().addAll(
-            "All",
-            "breathing",
-            "grounding",
-            "relaxation",
-            "cognitive",
-            "mindfulness",
-            "meditation"
-        );
-        categoryCombo.setValue("All");
-        categoryCombo.setStyle(getComboBoxStyle());
-        categoryCombo.setPrefWidth(150);
-        
-        categoryCombo.setOnAction(e -> refresh());
-        filterBox.getChildren().addAll(filterLabel, categoryCombo);
-        section.getChildren().add(filterBox);
-        
-        // Exercise list
-        exerciseListView = new ListView<>();
-        exerciseListView.setPrefHeight(400);
-        exerciseListView.setPrefWidth(340);
-        exerciseListView.setStyle("-fx-control-inner-background: #f8fafc;");
-        
-        exerciseListView.setCellFactory(lv -> new ListCell<Exercise>() {
-            @Override
-            protected void updateItem(Exercise exercise, boolean empty) {
-                super.updateItem(exercise, empty);
-                if (empty || exercise == null) {
-                    setText(null);
-                } else {
-                    String statusMark = statusMarkFor(exercise.getId());
-                    setText(String.format(
-                        "%s %s\n⏱ %d min | 📊 Level: %s",
-                        exercise.getTitle(),
-                        statusMark,
-                        exercise.getDuration(),
-                        exercise.getDifficulty()
-                    ));
-                    setStyle("-fx-padding: 10px; -fx-cursor: hand;");
-                }
-            }
-        });
-        
-        exerciseListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null) {
-                showExerciseDetails(newVal);
-            }
-        });
-        
-        section.getChildren().add(exerciseListView);
-        VBox.setVgrow(exerciseListView, javafx.scene.layout.Priority.ALWAYS);
-        
-        return section;
+        VBox.setVgrow(card, Priority.ALWAYS);
+        card.getChildren().addAll(bar, inner);
+        return card;
     }
-    
-    private VBox createDetailsPanel() {
-        VBox panel = new VBox(15);
+
+    private void rebuildFilterChips() {
+        filterChipsBox.getChildren().clear();
+        for (String cat : CAT_META.keySet()) {
+            String display = cat.substring(0, 1).toUpperCase() + cat.substring(1);
+            Button chip = new Button(catEmoji(cat) + "  " + display);
+            chip.setFont(Font.font("Segoe UI", 11));
+            chip.setCursor(Cursor.HAND);
+            boolean active = cat.equals(activeFilter);
+            chip.setStyle(active ? chipActiveStyle(catColor(cat)) : chipInactiveStyle());
+            chip.setOnAction(e -> {
+                activeFilter = cat;
+                rebuildFilterChips();
+                applyFilter();
+            });
+            filterChipsBox.getChildren().add(chip);
+        }
+    }
+
+    private String chipActiveStyle(String color) {
+        return "-fx-background-color: " + color + "; " +
+               "-fx-text-fill: white; " +
+               "-fx-background-radius: 20; " +
+               "-fx-padding: 5 12; " +
+               "-fx-cursor: hand; " +
+               "-fx-effect: dropshadow(three-pass-box, " + color + "55, 6, 0, 0, 2);";
+    }
+
+    private String chipInactiveStyle() {
+        return "-fx-background-color: #f1f5f9; " +
+               "-fx-text-fill: #6b7280; " +
+               "-fx-background-radius: 20; " +
+               "-fx-padding: 5 12; " +
+               "-fx-cursor: hand;";
+    }
+
+    private void applyFilter() {
+        exerciseCardsBox.getChildren().clear();
+        for (Exercise ex : allExercises) {
+            if ("All".equals(activeFilter) || activeFilter.equalsIgnoreCase(ex.getCategory())) {
+                exerciseCardsBox.getChildren().add(buildExerciseCard(ex));
+            }
+        }
+        if (exerciseCardsBox.getChildren().isEmpty()) {
+            Label empty = new Label("No exercises in this category yet.");
+            empty.setFont(Font.font("Segoe UI", 13));
+            empty.setTextFill(Color.web(MindDocTheme.TEXT_MUTED));
+            empty.setPadding(new Insets(20));
+            exerciseCardsBox.getChildren().add(empty);
+        }
+    }
+
+    // ── Exercise card ─────────────────────────────────────────────────────────
+
+    private HBox buildExerciseCard(Exercise ex) {
+        String color  = catColor(ex.getCategory());
+        String status = exerciseStatuses.getOrDefault(ex.getId(), "not_started");
+        boolean sel   = selectedExercise != null && selectedExercise.getId() == ex.getId();
+
+        // Left color strip
+        Region strip = new Region();
+        strip.setPrefWidth(5);
+        strip.setMinHeight(64);
+        strip.setStyle("-fx-background-color: " + color + "; -fx-background-radius: 12 0 0 12;");
+
+        // Icon circle
+        StackPane iconCircle = new StackPane();
+        iconCircle.setStyle(
+            "-fx-background-color: " + color + "22; " +
+            "-fx-background-radius: 12; " +
+            "-fx-min-width: 48; -fx-min-height: 48; " +
+            "-fx-max-width: 48; -fx-max-height: 48;"
+        );
+        Label icon = new Label(catEmoji(ex.getCategory()));
+        icon.setFont(Font.font("System", 22));
+        iconCircle.getChildren().add(icon);
+
+        // Text
+        VBox text = new VBox(4);
+        HBox.setHgrow(text, Priority.ALWAYS);
+
+        Label name = new Label(ex.getTitle());
+        name.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+        name.setTextFill(Color.web(MindDocTheme.TEXT_PRIMARY));
+        name.setWrapText(true);
+
+        HBox meta = new HBox(10);
+        meta.setAlignment(Pos.CENTER_LEFT);
+        Label dur = new Label("⏱ " + ex.getDuration() + " min");
+        dur.setFont(Font.font("Segoe UI", 11));
+        dur.setTextFill(Color.web(MindDocTheme.TEXT_MUTED));
+        HBox dots = buildDifficultyDots(parseDifficulty(ex.getDifficulty()), color);
+        meta.getChildren().addAll(dur, dots);
+        text.getChildren().addAll(name, meta);
+
+        // Status chip
+        VBox right = new VBox();
+        right.setAlignment(Pos.CENTER);
+        right.getChildren().add(buildStatusChip(status));
+
+        HBox inner = new HBox(10);
+        inner.setAlignment(Pos.CENTER_LEFT);
+        inner.setPadding(new Insets(10, 12, 10, 10));
+        HBox.setHgrow(inner, Priority.ALWAYS);
+        inner.getChildren().addAll(iconCircle, text, right);
+
+        HBox card = new HBox(0);
+        card.setAlignment(Pos.CENTER_LEFT);
+        card.setCursor(Cursor.HAND);
+        card.setMaxWidth(Double.MAX_VALUE);
+        card.setStyle(sel ? cardSelectedStyle(color) : cardDefaultStyle());
+        card.getChildren().addAll(strip, inner);
+
+        card.setOnMouseEntered(e -> {
+            if (selectedExercise == null || selectedExercise.getId() != ex.getId())
+                card.setStyle(cardHoverStyle(color));
+        });
+        card.setOnMouseExited(e -> {
+            if (selectedExercise == null || selectedExercise.getId() != ex.getId())
+                card.setStyle(cardDefaultStyle());
+        });
+        card.setOnMouseClicked(e -> {
+            selectedExercise = ex;
+            applyFilter();
+            showExerciseDetails(ex);
+        });
+
+        return card;
+    }
+
+    private int parseDifficulty(String diff) {
+        if (diff == null) return 1;
+        return switch (diff.toLowerCase()) {
+            case "beginner"     -> 1;
+            case "intermediate" -> 3;
+            case "advanced"     -> 5;
+            default -> {
+                try { yield Integer.parseInt(diff); } catch (Exception e) { yield 1; }
+            }
+        };
+    }
+
+    private HBox buildDifficultyDots(int level, String color) {
+        HBox dots = new HBox(3);
+        dots.setAlignment(Pos.CENTER_LEFT);
+        for (int i = 1; i <= 5; i++) {
+            Circle dot = new Circle(4);
+            dot.setFill(i <= level ? Color.web(color) : Color.web("#e5e7eb"));
+            dots.getChildren().add(dot);
+        }
+        return dots;
+    }
+
+    private Label buildStatusChip(String status) {
+        String text, bg, fg;
+        switch (status) {
+            case "completed":   text = "✓ Done";   bg = "#d1fae5"; fg = "#065f46"; break;
+            case "in_progress": text = "⏳ Active"; bg = "#fef3c7"; fg = "#92400e"; break;
+            default:            text = "New";       bg = "#f1f5f9"; fg = "#6b7280";
+        }
+        Label chip = new Label(text);
+        chip.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
+        chip.setStyle(
+            "-fx-background-color: " + bg + "; " +
+            "-fx-text-fill: " + fg + "; " +
+            "-fx-padding: 3 8; " +
+            "-fx-background-radius: 10;"
+        );
+        return chip;
+    }
+
+    private String cardDefaultStyle() {
+        return "-fx-background-color: #f8fafc; " +
+               "-fx-background-radius: 12; -fx-border-radius: 12; " +
+               "-fx-border-color: #e5e7eb; -fx-border-width: 1;";
+    }
+
+    private String cardHoverStyle(String color) {
+        return "-fx-background-color: " + color + "0d; " +
+               "-fx-background-radius: 12; -fx-border-radius: 12; " +
+               "-fx-border-color: " + color + "66; -fx-border-width: 1.5;";
+    }
+
+    private String cardSelectedStyle(String color) {
+        return "-fx-background-color: " + color + "15; " +
+               "-fx-background-radius: 12; -fx-border-radius: 12; " +
+               "-fx-border-color: " + color + "; -fx-border-width: 2; " +
+               "-fx-effect: dropshadow(three-pass-box, " + color + "44, 8, 0, 0, 2);";
+    }
+
+    // ── Details panel ─────────────────────────────────────────────────────────
+
+    private VBox buildDetailsPlaceholder() {
+        VBox panel = new VBox(0);
+        panel.setMinWidth(420);
         panel.setStyle(
             "-fx-background-color: white; " +
-            "-fx-background-radius: 14; " +
-            "-fx-border-radius: 14; " +
-            "-fx-padding: 20; " +
-            "-fx-effect: dropshadow(three-pass-box, #00000014, 8, 0, 0, 2);"
+            "-fx-background-radius: 16; " +
+            "-fx-border-radius: 16; " +
+            "-fx-effect: dropshadow(three-pass-box, #00000014, 10, 0, 0, 3);"
         );
-        panel.setMinWidth(420);
-        panel.setPrefWidth(700);
-        panel.setMaxWidth(Double.MAX_VALUE);
-        
-        Label detailsTitle = new Label(I18n.t("exercise_details", "Exercise Details"));
-        detailsTitle.setFont(Font.font("System", FontWeight.BOLD, 16));
-        panel.getChildren().add(detailsTitle);
-        
-        Label placeholder = new Label(I18n.t("select_exercise", "Select an exercise to view details"));
-        placeholder.setStyle("-fx-text-fill: #999; -fx-font-size: 14px;");
-        placeholder.setAlignment(Pos.CENTER);
-        
-        panel.getChildren().add(placeholder);
-        VBox.setVgrow(placeholder, javafx.scene.layout.Priority.ALWAYS);
-        
+        VBox.setVgrow(panel, Priority.ALWAYS);
+
+        VBox ph = new VBox(16);
+        ph.setAlignment(Pos.CENTER);
+        ph.setPadding(new Insets(60, 40, 40, 40));
+        VBox.setVgrow(ph, Priority.ALWAYS);
+
+        Label ico = new Label("🏃");
+        ico.setFont(Font.font("System", 52));
+        ico.setOpacity(0.3);
+
+        Label msg = new Label("Select an exercise to get started");
+        msg.setFont(Font.font("Segoe UI", 15));
+        msg.setTextFill(Color.web(MindDocTheme.TEXT_MUTED));
+
+        Label sub = new Label("Click any exercise card on the left\nto view its details and instructions.");
+        sub.setFont(Font.font("Segoe UI", 12));
+        sub.setTextFill(Color.web(MindDocTheme.TEXT_MUTED));
+        sub.setTextAlignment(TextAlignment.CENTER);
+        sub.setAlignment(Pos.CENTER);
+
+        ph.getChildren().addAll(ico, msg, sub);
+        panel.getChildren().add(ph);
         return panel;
     }
-    
-    private void showExerciseDetails(Exercise exercise) {
-        selectedExercise = exercise;
+
+    private void showExerciseDetails(Exercise ex) {
+        String color  = catColor(ex.getCategory());
+        String status = exerciseStatuses.getOrDefault(ex.getId(), "not_started");
+
         exerciseDetailsPanel.getChildren().clear();
-        
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(0));
-        
-        // Title
-        Label titleLabel = new Label(exercise.getTitle());
-        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
-        titleLabel.setTextFill(javafx.scene.paint.Color.web(MindDocTheme.PRIMARY));
-        content.getChildren().add(titleLabel);
-        
-        // Metadata
-        HBox metaBox = new HBox(20);
-        Label categoryLabel = new Label("📁 " + I18n.t("category", "Category:") + " " + exercise.getCategory());
-        Label durationLabel = new Label("⏱ " + I18n.t("duration", "Duration") + ": " + exercise.getDuration() + " min");
-        Label difficultyLabel = new Label("📊 Level: " + exercise.getDifficulty() + "/5");
-        metaBox.getChildren().addAll(categoryLabel, durationLabel, difficultyLabel);
-        content.getChildren().add(metaBox);
-        
-        // Description
-        Label descLabel = new Label(I18n.t("description", "Description:"));
-        descLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 12));
-        content.getChildren().add(descLabel);
-        
-        TextArea descArea = new TextArea();
-        descArea.setText(safeText(
-            exercise.getDescription(),
-            I18n.t("no_desc_exercise", "No description is available for this exercise yet.")
-        ));
-        descArea.setWrapText(true);
-        descArea.setEditable(false);
-        descArea.setPrefRowCount(3);
-        descArea.setStyle(getTextAreaStyle());
-        content.getChildren().add(descArea);
-        
-        // Instructions
-        Label instructionsLabel = new Label(I18n.t("instructions", "Step-by-Step Instructions:"));
-        instructionsLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 12));
-        content.getChildren().add(instructionsLabel);
-        
-        TextArea instructionsArea = new TextArea();
-        instructionsArea.setText(safeText(
-            exercise.getInstructions(),
-            I18n.t("no_instr_exercise", "Step-by-step instructions are not available yet.\n\n") +
-            "Recommended flow:\n" +
-            "1. Find a quiet place.\n" +
-            "2. Set a timer for the exercise duration.\n" +
-            "3. Focus on calm, steady breathing.\n" +
-            "4. Stop if you feel discomfort and try again later."
-        ).replace("\\n", "\n"));
-        instructionsArea.setWrapText(true);
-        instructionsArea.setEditable(false);
-        instructionsArea.setPrefRowCount(5);
-        instructionsArea.setStyle(getTextAreaStyle());
-        content.getChildren().add(instructionsArea);
-        
-        // Timer section
-        timerLabel = new Label("⏱ " + I18n.t("duration", "Duration") + ": " + exercise.getDuration() + " minutes");
-        timerLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
-        timerLabel.setStyle("-fx-text-fill: " + MindDocTheme.PRIMARY + ";");
-        timerLabel.setAlignment(Pos.CENTER);
-        content.getChildren().add(timerLabel);
-        
-        // Start button
-        startButton = new Button(I18n.t("start_exercise", "▶ Start Exercise"));
-        startButton.setPrefWidth(Double.MAX_VALUE);
-        updateStartButtonState(exercise);
-        startButton.setOnAction(e -> startExercise(exercise));
-        content.getChildren().add(startButton);
-        
-        ScrollPane scrollPane = new ScrollPane(content);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setFitToHeight(true);
-        scrollPane.setStyle("-fx-padding: 0;");
-        
-        exerciseDetailsPanel.getChildren().add(scrollPane);
-        VBox.setVgrow(scrollPane, javafx.scene.layout.Priority.ALWAYS);
-    }
-    
-    private void startExercise(Exercise exercise) {
-        logger.info("Starting exercise: {}", exercise.getTitle());
 
-        String status = exerciseStatuses.getOrDefault(exercise.getId(), "not_started");
-        if ("completed".equals(status)) {
-            return;
-        }
-
-        try {
-            if (!"in_progress".equals(status)) {
-                progressRepository.saveStatus(currentUserId, "exercise", exercise.getId(), "in_progress");
-                exerciseStatuses.put(exercise.getId(), "in_progress");
-            }
-        } catch (SQLException e) {
-            logger.error("Error updating exercise status", e);
-            showError(I18n.t("failed_update_progress", "Failed to update progress."));
-            return;
-        }
-
-        Alert timerAlert = new Alert(Alert.AlertType.CONFIRMATION);
-        timerAlert.setTitle(I18n.t("exercise_progress", "Exercise Progress"));
-        timerAlert.setHeaderText(exercise.getTitle());
-        ButtonType completeButton = new ButtonType(I18n.t("mark_completed", "Mark as Completed"), ButtonBar.ButtonData.OK_DONE);
-        ButtonType keepProgressButton = new ButtonType(I18n.t("keep_in_progress", "Keep In Progress"), ButtonBar.ButtonData.CANCEL_CLOSE);
-        timerAlert.getButtonTypes().setAll(completeButton, keepProgressButton);
-        timerAlert.setContentText(
-            String.format(
-                I18n.t("marked_in_progress", "Exercise marked as in progress.\nMark it as completed when done.")
-            )
+        // ── Colored header ─────────────────────────────────────────────────
+        HBox detailHeader = new HBox(16);
+        detailHeader.setAlignment(Pos.CENTER_LEFT);
+        detailHeader.setPadding(new Insets(22, 24, 22, 24));
+        detailHeader.setStyle(
+            "-fx-background-color: linear-gradient(from 0% 0% to 100% 0%, " + color + ", " + color + "99); " +
+            "-fx-background-radius: 16 16 0 0;"
         );
 
-        timerAlert.showAndWait().ifPresent(result -> {
-            if (result == completeButton) {
-                try {
-                    progressRepository.saveStatus(currentUserId, "exercise", exercise.getId(), "completed");
-                    exerciseStatuses.put(exercise.getId(), "completed");
-                } catch (SQLException e) {
-                    logger.error("Error marking exercise completed", e);
-                    showError(I18n.t("failed_save_completion", "Failed to save completion status."));
-                }
-                if (selectedExercise != null && selectedExercise.getId() == exercise.getId()) {
-                    updateStartButtonState(exercise);
-                }
-            }
-        });
-        exerciseListView.refresh();
+        StackPane iconCircle = new StackPane();
+        iconCircle.setStyle(
+            "-fx-background-color: #ffffff33; " +
+            "-fx-background-radius: 16; " +
+            "-fx-min-width: 64; -fx-min-height: 64; " +
+            "-fx-max-width: 64; -fx-max-height: 64;"
+        );
+        Label iconLbl = new Label(catEmoji(ex.getCategory()));
+        iconLbl.setFont(Font.font("System", 32));
+        iconCircle.getChildren().add(iconLbl);
+
+        VBox headerText = new VBox(6);
+        HBox.setHgrow(headerText, Priority.ALWAYS);
+
+        Label titleLbl = new Label(ex.getTitle());
+        titleLbl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 19));
+        titleLbl.setTextFill(Color.WHITE);
+        titleLbl.setWrapText(true);
+
+        HBox chipRow = new HBox(8);
+        chipRow.setAlignment(Pos.CENTER_LEFT);
+        chipRow.getChildren().addAll(
+            detailChip("📁 " + ex.getCategory(), "#ffffff44", "white"),
+            detailChip("⏱ " + ex.getDuration() + " min", "#ffffff44", "white"),
+            detailChip("★ " + ex.getDifficulty(), "#ffffff44", "white"),
+            buildStatusChipLarge(status)
+        );
+        headerText.getChildren().addAll(titleLbl, chipRow);
+        detailHeader.getChildren().addAll(iconCircle, headerText);
+
+        // ── Timer row ─────────────────────────────────────────────────────
+        HBox timerRow = new HBox(10);
+        timerRow.setAlignment(Pos.CENTER);
+        timerRow.setPadding(new Insets(14, 24, 0, 24));
+        timerRow.setStyle(
+            "-fx-background-color: " + color + "11; " +
+            "-fx-border-color: " + color + "33; " +
+            "-fx-border-width: 0 0 1 0;"
+        );
+
+        // Timer display widget
+        StackPane timerWidget = new StackPane();
+        timerWidget.setStyle(
+            "-fx-background-color: white; " +
+            "-fx-background-radius: 50; " +
+            "-fx-border-color: " + color + "; " +
+            "-fx-border-width: 3; " +
+            "-fx-border-radius: 50; " +
+            "-fx-min-width: 80; -fx-min-height: 80; " +
+            "-fx-max-width: 80; -fx-max-height: 80; " +
+            "-fx-effect: dropshadow(three-pass-box, " + color + "44, 8, 0, 0, 2);"
+        );
+        VBox timerText = new VBox(0);
+        timerText.setAlignment(Pos.CENTER);
+        Label timerNum = new Label(String.valueOf(ex.getDuration()));
+        timerNum.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+        timerNum.setTextFill(Color.web(color));
+        Label timerUnit = new Label("min");
+        timerUnit.setFont(Font.font("Segoe UI", 10));
+        timerUnit.setTextFill(Color.web(MindDocTheme.TEXT_MUTED));
+        timerText.getChildren().addAll(timerNum, timerUnit);
+        timerWidget.getChildren().add(timerText);
+
+        VBox timerMeta = new VBox(3);
+        timerMeta.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(timerMeta, Priority.ALWAYS);
+        Label timerTitle = new Label("Exercise Duration");
+        timerTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+        timerTitle.setTextFill(Color.web(MindDocTheme.TEXT_PRIMARY));
+        Label timerSub = new Label("Set aside " + ex.getDuration() + " minutes of uninterrupted time.");
+        timerSub.setFont(Font.font("Segoe UI", 12));
+        timerSub.setTextFill(Color.web(MindDocTheme.TEXT_MUTED));
+        timerMeta.getChildren().addAll(timerTitle, timerSub);
+
+        timerRow.getChildren().addAll(timerWidget, timerMeta);
+
+        // ── Body ──────────────────────────────────────────────────────────
+        VBox body = new VBox(16);
+        body.setPadding(new Insets(20, 24, 24, 24));
+        VBox.setVgrow(body, Priority.ALWAYS);
+
+        body.getChildren().add(buildSection("📝 Description",
+            safeText(ex.getDescription(), "No description available for this exercise."),
+            color, 3));
+
+        body.getChildren().add(buildSection("📋 Step-by-Step Instructions",
+            safeText(ex.getInstructions(),
+                "1. Find a quiet place.\n" +
+                "2. Follow the exercise description step by step.\n" +
+                "3. Keep steady breathing during the full duration.\n" +
+                "4. After completion, note how you feel.").replace("\\n", "\n"),
+            color, 6));
+
+        startButton = new Button();
+        startButton.setPrefWidth(Double.MAX_VALUE);
+        startButton.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        updateStartButtonState(ex);
+        startButton.setOnAction(e -> startExercise(ex));
+        body.getChildren().add(startButton);
+
+        ScrollPane sp = new ScrollPane();
+        VBox spContent = new VBox(0);
+        spContent.getChildren().addAll(timerRow, body);
+        sp.setContent(spContent);
+        sp.setFitToWidth(true);
+        sp.setStyle(
+            "-fx-background-color: transparent; " +
+            "-fx-background: transparent; " +
+            "-fx-padding: 0;"
+        );
+        VBox.setVgrow(sp, Priority.ALWAYS);
+
+        exerciseDetailsPanel.getChildren().addAll(detailHeader, sp);
     }
-    
+
+    private VBox buildSection(String label, String text, String color, int rows) {
+        VBox box = new VBox(8);
+
+        HBox labelRow = new HBox(8);
+        labelRow.setAlignment(Pos.CENTER_LEFT);
+
+        Region dot = new Region();
+        dot.setPrefWidth(4);
+        dot.setPrefHeight(16);
+        dot.setStyle("-fx-background-color: " + color + "; -fx-background-radius: 2;");
+
+        Label lbl = new Label(label);
+        lbl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+        lbl.setTextFill(Color.web(MindDocTheme.TEXT_PRIMARY));
+        labelRow.getChildren().addAll(dot, lbl);
+
+        TextArea ta = new TextArea(text);
+        ta.setWrapText(true);
+        ta.setEditable(false);
+        ta.setPrefRowCount(rows);
+        ta.setStyle(
+            "-fx-control-inner-background: #f8fafc; " +
+            "-fx-background-color: #f8fafc; " +
+            "-fx-border-color: #e5e7eb; " +
+            "-fx-border-radius: 10; " +
+            "-fx-background-radius: 10; " +
+            "-fx-padding: 10; " +
+            "-fx-font-size: 12;"
+        );
+        box.getChildren().addAll(labelRow, ta);
+        return box;
+    }
+
+    private Label detailChip(String text, String bg, String fg) {
+        Label l = new Label(text);
+        l.setFont(Font.font("Segoe UI", 11));
+        l.setStyle(
+            "-fx-background-color: " + bg + "; " +
+            "-fx-text-fill: " + fg + "; " +
+            "-fx-padding: 3 9; " +
+            "-fx-background-radius: 10;"
+        );
+        return l;
+    }
+
+    private Label buildStatusChipLarge(String status) {
+        String text, bg, fg;
+        switch (status) {
+            case "completed":   text = "✓ Completed";  bg = "#d1fae5"; fg = "#065f46"; break;
+            case "in_progress": text = "⏳ In Progress"; bg = "#fef3c7"; fg = "#92400e"; break;
+            default:            text = "🆕 Not Started"; bg = "#f1f5f9"; fg = "#6b7280";
+        }
+        Label l = new Label(text);
+        l.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+        l.setStyle(
+            "-fx-background-color: " + bg + "; " +
+            "-fx-text-fill: " + fg + "; " +
+            "-fx-padding: 4 10; " +
+            "-fx-background-radius: 10;"
+        );
+        return l;
+    }
+
+    // ── Data / Actions ────────────────────────────────────────────────────────
+
     @Override
     public void refresh() {
         try {
             exerciseStatuses.clear();
             exerciseStatuses.putAll(progressRepository.findStatusByUserAndType(currentUserId, "exercise"));
+            allExercises = exerciseRepository.findAll();
 
-            String category = categoryCombo != null ? categoryCombo.getValue() : "All";
-            List<Exercise> exercises;
-            if (category == null || "All".equalsIgnoreCase(category)) {
-                exercises = exerciseRepository.findAll();
-            } else {
-                exercises = exerciseRepository.findByCategory(category);
-            }
+            int total = allExercises.size();
+            long done  = allExercises.stream()
+                .filter(e -> "completed".equals(exerciseStatuses.getOrDefault(e.getId(), "")))
+                .count();
 
-            exerciseListView.getItems().clear();
-            for (Exercise exercise : exercises) {
-                exerciseListView.getItems().add(exercise);
-            }
-            exerciseListView.refresh();
+            if (progressCountLabel != null) progressCountLabel.setText(done + " / " + total + " done");
+            if (progressBar        != null) progressBar.setProgress(total > 0 ? (double) done / total : 0);
 
-            if (selectedExercise != null) {
-                boolean stillVisible = exercises.stream().anyMatch(e -> e.getId() == selectedExercise.getId());
-                if (!stillVisible) {
+            applyFilter();
+
+            if (selectedExercise != null && startButton != null) {
+                boolean stillThere = allExercises.stream().anyMatch(e -> e.getId() == selectedExercise.getId());
+                if (stillThere) showExerciseDetails(selectedExercise);
+                else {
                     selectedExercise = null;
                     exerciseDetailsPanel.getChildren().clear();
-                    exerciseDetailsPanel.getChildren().add(createDetailsPlaceholder());
+                    exerciseDetailsPanel.getChildren().addAll(buildDetailsPlaceholder().getChildren());
                 }
             }
         } catch (SQLException e) {
@@ -385,103 +665,102 @@ public class ExercisesPanel extends BasePanel {
         }
     }
 
-    private Label createDetailsPlaceholder() {
-        Label placeholder = new Label(I18n.t("select_exercise", "Select an exercise to view details"));
-        placeholder.setStyle("-fx-text-fill: #999; -fx-font-size: 14px;");
-        placeholder.setAlignment(Pos.CENTER);
-        VBox.setVgrow(placeholder, javafx.scene.layout.Priority.ALWAYS);
-        return placeholder;
+    private void startExercise(Exercise ex) {
+        String status = exerciseStatuses.getOrDefault(ex.getId(), "not_started");
+        if ("completed".equals(status)) return;
+
+        try {
+            if (!"in_progress".equals(status)) {
+                progressRepository.saveStatus(currentUserId, "exercise", ex.getId(), "in_progress");
+                exerciseStatuses.put(ex.getId(), "in_progress");
+            }
+
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+            alert.setTitle(I18n.t("exercise_progress", "Exercise Progress"));
+            alert.setHeaderText(ex.getTitle());
+            alert.setContentText(I18n.t("marked_in_progress", "Exercise marked as in progress.\nMark it as completed when done."));
+            ButtonType completeBtn = new ButtonType(I18n.t("mark_completed", "Mark as Completed"), ButtonBar.ButtonData.OK_DONE);
+            ButtonType keepBtn     = new ButtonType(I18n.t("keep_in_progress", "Keep In Progress"), ButtonBar.ButtonData.CANCEL_CLOSE);
+            alert.getButtonTypes().setAll(completeBtn, keepBtn);
+
+            alert.showAndWait().ifPresent(result -> {
+                if (result == completeBtn) {
+                    try {
+                        progressRepository.saveStatus(currentUserId, "exercise", ex.getId(), "completed");
+                        exerciseStatuses.put(ex.getId(), "completed");
+                    } catch (SQLException e) {
+                        logger.error("Error marking exercise completed", e);
+                    }
+                }
+            });
+
+            updateStartButtonState(ex);
+            applyFilter();
+            showExerciseDetails(ex);
+        } catch (SQLException e) {
+            logger.error("Error starting exercise", e);
+        }
     }
 
-    private void updateStartButtonState(Exercise exercise) {
-        String status = exerciseStatuses.getOrDefault(exercise.getId(), "not_started");
+    private void updateStartButtonState(Exercise ex) {
+        if (startButton == null) return;
+        String color  = catColor(ex.getCategory());
+        String status = exerciseStatuses.getOrDefault(ex.getId(), "not_started");
+
         if ("completed".equals(status)) {
-            startButton.setText(I18n.t("exercise_completed", "✓ Exercise Completed"));
+            startButton.setText("✓  Exercise Completed");
             startButton.setDisable(true);
             startButton.setStyle(
-                "-fx-padding: 12px;" +
-                "-fx-font-size: 14px;" +
-                "-fx-background-color: " + MindDocTheme.SUCCESS + ";" +
-                "-fx-text-fill: white;"
+                "-fx-background-color: #d1fae5; " +
+                "-fx-text-fill: #065f46; " +
+                "-fx-background-radius: 12; " +
+                "-fx-padding: 14 0; " +
+                "-fx-font-size: 14;"
             );
             return;
         }
-
-        if ("in_progress".equals(status)) {
-            startButton.setText(I18n.t("in_progress", "⏳ In Progress"));
-        } else {
-            startButton.setText(I18n.t("start_exercise", "▶ Start Exercise"));
-        }
         startButton.setDisable(false);
-        startButton.setStyle(
-            "-fx-padding: 12px;" +
-            "-fx-font-size: 14px;" +
-            "-fx-background-color: " + MindDocTheme.PRIMARY + ";" +
-            "-fx-text-fill: white;" +
-            "-fx-cursor: hand;"
-        );
-    }
-
-    private String safeText(String value, String fallback) {
-        if (value == null || value.trim().isEmpty()) {
-            return fallback;
-        }
-        return value;
-    }
-
-    private String statusMarkFor(int exerciseId) {
-        String status = exerciseStatuses.getOrDefault(exerciseId, "not_started");
-        if ("completed".equals(status)) {
-            return "✓";
-        }
         if ("in_progress".equals(status)) {
-            return "⏳";
+            startButton.setText("⏳  Continue Exercise");
+            startButton.setStyle(
+                "-fx-background-color: #fef3c7; " +
+                "-fx-text-fill: #92400e; " +
+                "-fx-background-radius: 12; " +
+                "-fx-padding: 14 0; " +
+                "-fx-font-size: 14; " +
+                "-fx-cursor: hand;"
+            );
+        } else {
+            startButton.setText("▶  Start Exercise");
+            startButton.setStyle(
+                "-fx-background-color: " + color + "; " +
+                "-fx-text-fill: white; " +
+                "-fx-background-radius: 12; " +
+                "-fx-padding: 14 0; " +
+                "-fx-font-size: 14; " +
+                "-fx-cursor: hand; " +
+                "-fx-effect: dropshadow(three-pass-box, " + color + "55, 8, 0, 0, 3);"
+            );
         }
-        return "";
     }
 
-    private void showError(String message) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle(I18n.t("exercises", "Exercises"));
-        alert.setContentText(message);
-        alert.showAndWait();
-    }
-    
-    private String getComboBoxStyle() {
-        return "-fx-padding: 8; " +
-               "-fx-font-size: 12px; " +
-               "-fx-border-radius: 6; " +
-               "-fx-background-radius: 6; " +
-               "-fx-border-color: " + MindDocTheme.BORDER + "; " +
-               "-fx-border-width: 1;";
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private Region accentBar(String color) {
+        Region r = new Region();
+        r.setPrefHeight(4);
+        r.setMaxWidth(Double.MAX_VALUE);
+        r.setStyle("-fx-background-color: " + color + "; -fx-background-radius: 16 16 0 0;");
+        return r;
     }
 
-    private String getTextAreaStyle() {
-        return "-fx-padding: 10; " +
-               "-fx-font-size: 12px; " +
-               "-fx-border-radius: 6; " +
-               "-fx-background-radius: 6; " +
-               "-fx-border-color: " + MindDocTheme.BORDER + "; " +
-               "-fx-border-width: 1; " +
-               "-fx-control-inner-background: " + MindDocTheme.BACKGROUND + ";";
+    private String safeText(String v, String fallback) {
+        return (v == null || v.isBlank()) ? fallback : v;
     }
 
     public void applyLanguage(String language) {
         I18n.setLanguage(language);
-        
-        // Update title
-        if (titleLabel != null) {
-            titleLabel.setText("💪 " + I18n.t("exercises", "Exercises & Strategies"));
-        }
-        
-        // Refresh exercise list to update labels with new translations
-        if (exerciseListView != null) {
-            exerciseListView.refresh();
-        }
-        
-        // Refresh details if an exercise is selected
-        if (selectedExercise != null && selectedExercise.getId() > 0) {
-            showExerciseDetails(selectedExercise);
-        }
+        if (selectedExercise != null) showExerciseDetails(selectedExercise);
+        applyFilter();
     }
 }
