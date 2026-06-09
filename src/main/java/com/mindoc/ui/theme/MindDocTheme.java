@@ -68,6 +68,41 @@ public class MindDocTheme {
                 "-fx-text-fill: " + text + "; " +
                 "}\n" +
 
+                // ── TabPane: remove content-area padding & gap ────────────────────
+                ".tab-pane > .tab-content-area { " +
+                "-fx-padding: 0; " +
+                "-fx-background-color: " + bg + "; " +
+                "}\n" +
+                ".tab-pane > .tab-header-area { " +
+                "-fx-pref-height: 0; -fx-min-height: 0; -fx-max-height: 0; " +
+                "-fx-padding: 0; " +
+                "}\n" +
+
+                // ── Disabled controls: no green tint ─────────────────────────────
+                ".text-field:disabled { " +
+                "-fx-opacity: 0.7; " +
+                "-fx-background-color: #f1f5f9; " +
+                "-fx-border-color: #e5e7eb; " +
+                "-fx-border-width: 1; " +
+                "}\n" +
+                ".text-area:disabled { " +
+                "-fx-opacity: 0.7; " +
+                "-fx-control-inner-background: #f1f5f9; " +
+                "-fx-border-color: #e5e7eb; " +
+                "}\n" +
+                ".combo-box:disabled { " +
+                "-fx-opacity: 0.7; " +
+                "-fx-background-color: #f1f5f9; " +
+                "-fx-border-color: #e5e7eb; " +
+                "}\n" +
+                ".date-picker:disabled { " +
+                "-fx-opacity: 0.7; " +
+                "}\n" +
+                ".date-picker .text-field:disabled { " +
+                "-fx-background-color: #f1f5f9; " +
+                "-fx-border-color: #e5e7eb; " +
+                "}\n" +
+
                 // ── Buttons ──────────────────────────────────────────────────────
                 ".button { " +
                 "-fx-padding: 10 20; " +
