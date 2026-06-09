@@ -68,14 +68,25 @@ public class MindDocTheme {
                 "-fx-text-fill: " + text + "; " +
                 "}\n" +
 
-                // ── TabPane: remove content-area padding & gap ────────────────────
+                // ── TabPane: remove ALL gaps ──────────────────────────────────────
+                ".tab-pane { " +
+                "-fx-padding: 0; " +
+                "-fx-background-insets: 0; " +
+                "-fx-border-insets: 0; " +
+                "-fx-border-width: 0; " +
+                "}\n" +
                 ".tab-pane > .tab-content-area { " +
                 "-fx-padding: 0; " +
+                "-fx-background-insets: 0; " +
+                "-fx-border-insets: 0; " +
                 "-fx-background-color: " + bg + "; " +
+                "}\n" +
+                ".tab-pane > .tab-content-area > * { " +
+                "-fx-padding: 0; " +
                 "}\n" +
                 ".tab-pane > .tab-header-area { " +
                 "-fx-pref-height: 0; -fx-min-height: 0; -fx-max-height: 0; " +
-                "-fx-padding: 0; " +
+                "-fx-padding: 0; -fx-background-insets: 0; " +
                 "}\n" +
 
                 // ── Disabled controls: no green tint ─────────────────────────────

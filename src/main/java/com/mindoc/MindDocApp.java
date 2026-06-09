@@ -131,10 +131,22 @@ public class MindDocApp extends Application {
         mainScene = new Scene(mainRoot, 1280, 800);
         mainScene.getStylesheets().add(MindDocTheme.toDataUri("Light"));
 
-        // hide the built-in tab header after scene is ready
+        // hide the built-in tab header + zero out any residual padding
         Platform.runLater(() -> {
             javafx.scene.Node header = mainTabPane.lookup(".tab-header-area");
-            if (header != null) { header.setManaged(false); header.setVisible(false); }
+            if (header != null) {
+                header.setManaged(false);
+                header.setVisible(false);
+                if (header instanceof Region r) {
+                    r.setPrefHeight(0); r.setMinHeight(0); r.setMaxHeight(0);
+                    r.setPadding(new Insets(0));
+                }
+            }
+            // zero out tab content-area padding programmatically
+            javafx.scene.Node contentArea = mainTabPane.lookup(".tab-content-area");
+            if (contentArea instanceof Region r) {
+                r.setPadding(new Insets(0));
+            }
         });
 
         applyInitialSettings();

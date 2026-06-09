@@ -203,6 +203,7 @@ public class ExercisesPanel extends BasePanel {
         VBox card = new VBox(0);
         card.setMinWidth(340);
         card.setPrefWidth(420);
+        card.setMaxHeight(Double.MAX_VALUE); // stretch to fill HBox height
         card.setStyle(
             "-fx-background-color: white; " +
             "-fx-background-radius: 16; " +
@@ -413,6 +414,7 @@ public class ExercisesPanel extends BasePanel {
     private VBox buildDetailsPlaceholder() {
         VBox panel = new VBox(0);
         panel.setMinWidth(420);
+        panel.setMaxHeight(Double.MAX_VALUE); // stretch to fill HBox height
         panel.setStyle(
             "-fx-background-color: white; " +
             "-fx-background-radius: 16; " +
