@@ -16,17 +16,20 @@ import com.mindoc.ui.symptomtracker.SymptomTrackerPanel;
 import com.mindoc.ui.theme.MindDocTheme;
 import com.mindoc.util.I18n;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
+import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
+import java.util.ArrayList;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +49,8 @@ public class MindDocApp extends Application {
     private Scene mainScene;
     private BorderPane mainRoot;
     private TabPane mainTabPane;
-    private MenuBar mainMenuBar;
+    private HBox mainNavBar;
+    private List<Button> navButtons = new ArrayList<>();
     private AppSettingsRepository appSettingsRepository;
 
     private DashboardPanel dashboardPanel;
@@ -57,19 +61,8 @@ public class MindDocApp extends Application {
     private CoursesPanel coursesPanel;
     private ExercisesPanel exercisesPanel;
     private SettingsPanel settingsPanel;
-    private Menu fileMenu;
-    private Menu moodMenu;
-    private Menu learningMenu;
-    private Menu helpMenu;
-    private MenuItem logoutItem;
-    private MenuItem exitItem;
-    private MenuItem logMoodItem;
-    private MenuItem viewHistoryItem;
-    private MenuItem courseItem;
-    private MenuItem exerciseItem;
-    private MenuItem aboutItem;
-    private MenuItem profileItem;
-    private MenuItem settingsItem;
+    // kept for applyLanguage text updates
+    private Button[] navBtnRefs = new Button[8];
 
     @Override
     public void start(Stage primaryStage) {
@@ -130,16 +123,23 @@ public class MindDocApp extends Application {
         mainRoot.setStyle("-fx-background-color: " + MindDocTheme.BACKGROUND + ";");
 
         mainTabPane = createTabPane();
+        mainNavBar  = createNavBar(mainTabPane);
+
+        mainRoot.setTop(mainNavBar);
         mainRoot.setCenter(mainTabPane);
 
-        mainMenuBar = createMenuBar(primaryStage, mainTabPane);
-        mainRoot.setTop(mainMenuBar);
-
-        mainScene = new Scene(mainRoot, 1200, 800);
+        mainScene = new Scene(mainRoot, 1280, 800);
         mainScene.getStylesheets().add(MindDocTheme.toDataUri("Light"));
+
+        // hide the built-in tab header after scene is ready
+        Platform.runLater(() -> {
+            javafx.scene.Node header = mainTabPane.lookup(".tab-header-area");
+            if (header != null) { header.setManaged(false); header.setVisible(false); }
+        });
+
         applyInitialSettings();
 
-        primaryStage.setTitle("🧠 MindDoc - Mental Health Support");
+        primaryStage.setTitle("MindDoc - Mental Health Support");
         primaryStage.setScene(mainScene);
         primaryStage.setOnCloseRequest(e -> onApplicationClose());
         primaryStage.show();
@@ -147,70 +147,120 @@ public class MindDocApp extends Application {
         logger.info("Main window initialized");
     }
 
-    private MenuBar createMenuBar(Stage primaryStage, TabPane tabPane) {
-        MenuBar menuBar = new MenuBar();
-        // Темніший зелений для менюбару — щоб відрізнявся від таб-панелі
-        menuBar.setStyle(
-                "-fx-background-color: " + MindDocTheme.PRIMARY_DARK + "; " +
-                        "-fx-padding: 2 8;"
+    // ── Custom Navigation Bar ─────────────────────────────────────────────────
+
+    private HBox createNavBar(TabPane tabPane) {
+        HBox bar = new HBox(6);
+        bar.setAlignment(Pos.CENTER_LEFT);
+        bar.setPadding(new Insets(10, 16, 10, 16));
+        bar.setStyle("-fx-background-color: " + MindDocTheme.PRIMARY + ";");
+
+        // Brand logo + name
+        HBox brand = new HBox(8);
+        brand.setAlignment(Pos.CENTER_LEFT);
+        brand.setPadding(new Insets(0, 12, 0, 0));
+
+        Label logoEmoji = new Label("🧠");
+        logoEmoji.setFont(Font.font("System", 22));
+
+        Label brandName = new Label("MindDoc");
+        brandName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+        brandName.setTextFill(Color.WHITE);
+
+        brand.getChildren().addAll(logoEmoji, brandName);
+
+        // Vertical separator
+        Separator vSep = new Separator(Orientation.VERTICAL);
+        vSep.setStyle("-fx-background-color: #ffffff55;");
+        vSep.setPrefHeight(28);
+        HBox.setMargin(vSep, new Insets(0, 8, 0, 4));
+
+        bar.getChildren().addAll(brand, vSep);
+
+        // Tab navigation buttons
+        String[][] tabs = {
+            {"🏠", "Dashboard"},
+            {"👤", "Profile"},
+            {"😊", "Track Mood"},
+            {"🩺", "Symptoms"},
+            {"📚", "Learn"},
+            {"💪", "Exercises"},
+            {"📊", "Analytics"},
+            {"⚙️", "Settings"}
+        };
+
+        navButtons.clear();
+        for (int i = 0; i < tabs.length; i++) {
+            final int idx = i;
+            Button btn = new Button(tabs[i][0] + "  " + tabs[i][1]);
+            btn.setFont(Font.font("Segoe UI", 13));
+            btn.setCursor(Cursor.HAND);
+            btn.setStyle(navInactiveStyle());
+            btn.setOnAction(e -> {
+                tabPane.getSelectionModel().select(idx);
+                updateNavActive(idx);
+            });
+            navButtons.add(btn);
+            navBtnRefs[i] = btn;
+            bar.getChildren().add(btn);
+        }
+
+        // Spacer → logout button on right
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Button logoutBtn = new Button("⎋  Logout");
+        logoutBtn.setFont(Font.font("Segoe UI", 12));
+        logoutBtn.setCursor(Cursor.HAND);
+        logoutBtn.setStyle(
+            "-fx-background-color: #ffffff22; " +
+            "-fx-text-fill: white; " +
+            "-fx-border-color: #ffffff66; " +
+            "-fx-border-width: 1; " +
+            "-fx-border-radius: 8; " +
+            "-fx-background-radius: 8; " +
+            "-fx-padding: 6 12;"
+        );
+        logoutBtn.setOnAction(e -> onLogout());
+
+        bar.getChildren().addAll(spacer, logoutBtn);
+
+        // Sync nav highlight when tab changes externally
+        tabPane.getSelectionModel().selectedIndexProperty().addListener(
+            (obs, oldV, newV) -> updateNavActive(newV.intValue())
         );
 
-        // File menu
-        fileMenu = new Menu("File");
-        fileMenu.setStyle("-fx-text-fill: white;");
+        updateNavActive(0);
+        return bar;
+    }
 
-        logoutItem = new MenuItem("Logout");
-        logoutItem.setOnAction(e -> onLogout());
+    private void updateNavActive(int activeIdx) {
+        for (int i = 0; i < navButtons.size(); i++) {
+            navButtons.get(i).setStyle(i == activeIdx ? navActiveStyle() : navInactiveStyle());
+            navButtons.get(i).setFont(Font.font("Segoe UI",
+                i == activeIdx ? FontWeight.BOLD : FontWeight.NORMAL, 13));
+        }
+    }
 
-        exitItem = new MenuItem("Exit");
-        exitItem.setOnAction(e -> primaryStage.close());
-        fileMenu.getItems().addAll(logoutItem, new SeparatorMenuItem(), exitItem);
+    private String navActiveStyle() {
+        return "-fx-background-color: white; " +
+               "-fx-text-fill: " + MindDocTheme.PRIMARY + "; " +
+               "-fx-background-radius: 10; " +
+               "-fx-border-radius: 10; " +
+               "-fx-padding: 7 16; " +
+               "-fx-cursor: hand; " +
+               "-fx-effect: dropshadow(three-pass-box, #00000022, 4, 0, 0, 2);";
+    }
 
-        // Mood menu
-        moodMenu = new Menu("Mood");
-        moodMenu.setStyle("-fx-text-fill: white;");
-
-        logMoodItem = new MenuItem("Log Mood");
-        logMoodItem.setOnAction(e -> tabPane.getSelectionModel().select(2));
-
-        viewHistoryItem = new MenuItem("View History");
-        viewHistoryItem.setOnAction(e -> tabPane.getSelectionModel().select(6));
-
-        moodMenu.getItems().addAll(logMoodItem, new SeparatorMenuItem(), viewHistoryItem);
-
-        // Learning menu
-        learningMenu = new Menu("Learn");
-        learningMenu.setStyle("-fx-text-fill: white;");
-
-        courseItem = new MenuItem("CBT Courses");
-        courseItem.setOnAction(e -> tabPane.getSelectionModel().select(4));
-        exerciseItem = new MenuItem("Exercises & Strategies");
-        exerciseItem.setOnAction(e -> tabPane.getSelectionModel().select(5));
-
-        learningMenu.getItems().addAll(courseItem, exerciseItem);
-
-        // Help menu
-        helpMenu = new Menu("Help");
-        helpMenu.setStyle("-fx-text-fill: white;");
-
-        aboutItem = new MenuItem("About MindDoc");
-        aboutItem.setOnAction(e -> showAboutDialog());
-
-        profileItem = new MenuItem("My Profile");
-        profileItem.setOnAction(e -> {
-            tabPane.getSelectionModel().select(1);
-            if (profilePanel != null) {
-                profilePanel.refresh();
-            }
-        });
-
-        settingsItem = new MenuItem("Settings");
-        settingsItem.setOnAction(e -> tabPane.getSelectionModel().select(7));
-
-        helpMenu.getItems().addAll(profileItem, new SeparatorMenuItem(), aboutItem, new SeparatorMenuItem(), settingsItem);
-
-        menuBar.getMenus().addAll(fileMenu, moodMenu, learningMenu, helpMenu);
-        return menuBar;
+    private String navInactiveStyle() {
+        return "-fx-background-color: transparent; " +
+               "-fx-text-fill: white; " +
+               "-fx-border-color: #ffffff66; " +
+               "-fx-border-width: 1.5; " +
+               "-fx-border-radius: 10; " +
+               "-fx-background-radius: 10; " +
+               "-fx-padding: 7 16; " +
+               "-fx-cursor: hand;";
     }
 
     private TabPane createTabPane() {
@@ -315,9 +365,7 @@ public class MindDocApp extends Application {
     }
 
     private void applyAppSettings(AppSettings settings) {
-        if (settings == null || mainRoot == null || mainTabPane == null) {
-            return;
-        }
+        if (settings == null || mainRoot == null || mainTabPane == null) return;
         I18n.setLanguage(settings.getLanguage());
 
         boolean dark = "Dark".equalsIgnoreCase(settings.getTheme());
@@ -327,13 +375,6 @@ public class MindDocApp extends Application {
 
         mainRoot.setStyle("-fx-background-color: " + bg + "; -fx-font-size: " + fontPx + "px;");
         mainTabPane.setStyle("-fx-font-size: " + fontPx + "px;");
-        if (mainMenuBar != null) {
-            mainMenuBar.setStyle(
-                    "-fx-background-color: " + MindDocTheme.PRIMARY_DARK + "; " +
-                            "-fx-padding: 2 8; " +
-                            "-fx-font-size: " + fontPx + "px;"
-            );
-        }
 
         applyLanguage(settings.getLanguage());
 
@@ -341,39 +382,29 @@ public class MindDocApp extends Application {
             mainScene.getStylesheets().clear();
             mainScene.getStylesheets().add(MindDocTheme.toDataUri(settings.getTheme()));
             mainScene.getRoot().setStyle(
-                    "-fx-background-color: " + bg + "; " +
-                            "-fx-text-fill: " + text + "; " +
-                            "-fx-font-size: " + fontPx + "px;"
+                "-fx-background-color: " + bg + "; " +
+                "-fx-text-fill: " + text + "; " +
+                "-fx-font-size: " + fontPx + "px;"
             );
         }
     }
 
     private void applyLanguage(String language) {
         boolean ua = "Українська".equalsIgnoreCase(language);
-        if (fileMenu != null)     fileMenu.setText(ua ? "Файл" : "File");
-        if (moodMenu != null)     moodMenu.setText(ua ? "Настрій" : "Mood");
-        if (learningMenu != null) learningMenu.setText(ua ? "Навчання" : "Learn");
-        if (helpMenu != null)     helpMenu.setText(ua ? "Допомога" : "Help");
 
-        if (logoutItem != null)     logoutItem.setText(ua ? "Вийти з акаунту" : "Logout");
-        if (exitItem != null)       exitItem.setText(ua ? "Закрити" : "Exit");
-        if (logMoodItem != null)    logMoodItem.setText(ua ? "Записати настрій" : "Log Mood");
-        if (viewHistoryItem != null) viewHistoryItem.setText(ua ? "Історія" : "View History");
-        if (courseItem != null)     courseItem.setText(ua ? "Курси КПТ" : "CBT Courses");
-        if (exerciseItem != null)   exerciseItem.setText(ua ? "Вправи та стратегії" : "Exercises & Strategies");
-        if (aboutItem != null)      aboutItem.setText(ua ? "Про MindDoc" : "About MindDoc");
-        if (profileItem != null)    profileItem.setText(ua ? "Мій профіль" : "My Profile");
-        if (settingsItem != null)   settingsItem.setText(ua ? "Налаштування" : "Settings");
-
-        if (mainTabPane != null && mainTabPane.getTabs().size() >= 8) {
-            mainTabPane.getTabs().get(0).setText(ua ? "🏠  Дашборд"       : "🏠  Dashboard");
-            mainTabPane.getTabs().get(1).setText(ua ? "👤  Профіль"       : "👤  Profile");
-            mainTabPane.getTabs().get(2).setText(ua ? "😊  Настрій"       : "😊  Track Mood");
-            mainTabPane.getTabs().get(3).setText(ua ? "🩺  Симптоми"      : "🩺  Symptoms");
-            mainTabPane.getTabs().get(4).setText(ua ? "📚  Навчання"      : "📚  Learn");
-            mainTabPane.getTabs().get(5).setText(ua ? "💪  Вправи"        : "💪  Exercises");
-            mainTabPane.getTabs().get(6).setText(ua ? "📊  Аналітика"     : "📊  Analytics");
-            mainTabPane.getTabs().get(7).setText(ua ? "⚙️  Налаштування"  : "⚙️  Settings");
+        // Update nav button labels
+        String[][] labels = {
+            {ua ? "🏠  Дашборд"      : "🏠  Dashboard"},
+            {ua ? "👤  Профіль"      : "👤  Profile"},
+            {ua ? "😊  Настрій"      : "😊  Track Mood"},
+            {ua ? "🩺  Симптоми"     : "🩺  Symptoms"},
+            {ua ? "📚  Навчання"     : "📚  Learn"},
+            {ua ? "💪  Вправи"       : "💪  Exercises"},
+            {ua ? "📊  Аналітика"    : "📊  Analytics"},
+            {ua ? "⚙️  Налаштування" : "⚙️  Settings"}
+        };
+        for (int i = 0; i < navBtnRefs.length && i < labels.length; i++) {
+            if (navBtnRefs[i] != null) navBtnRefs[i].setText(labels[i][0]);
         }
 
         if (symptomTrackerPanel != null)  symptomTrackerPanel.applyLanguage(language);
