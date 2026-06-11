@@ -1,0 +1,15 @@
+# Compiled output
+target/
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Database file
+mindoc.db
+
+# OS
+.DS_Store
+Thumbs.db
