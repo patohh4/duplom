@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(grep -n \"ДП\" \"D:\\\\diplom_unpacked\\\\word\\\\styles.xml\" | head -30)",
+      "Bash(grep -c \"JAVA\\\\|Java\\\\|java\" \"D:\\\\diplom_unpacked\\\\word\\\\document.xml\")"
     ]
   }
 }
