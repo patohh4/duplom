@@ -197,23 +197,23 @@ public class DatabaseManager {
     
     private void insertDefaultSymptoms() throws SQLException {
         String[][] symptoms = {
-            // Depression
-            {"Persistent sadness", "Feeling sad or empty most of the day", "depression", "😢"},
-            {"Loss of interest", "Losing interest in activities you once enjoyed", "depression", "😔"},
-            {"Fatigue", "Feeling tired and lacking energy", "depression", "😴"},
-            {"Sleep problems", "Difficulty sleeping or sleeping too much", "depression", "🌙"},
-            
-            // Anxiety
-            {"Excessive worry", "Worrying about many things constantly", "anxiety", "😰"},
-            {"Racing thoughts", "Thoughts that come too fast to control", "anxiety", "💭"},
-            {"Tension", "Feeling physically tense or stressed", "anxiety", "😟"},
-            {"Panic", "Sudden fear or panic attacks", "anxiety", "😨"},
-            
-            // Stress
-            {"Overwhelmed", "Feeling overwhelmed by tasks or responsibilities", "stress", "😩"},
-            {"Irritability", "Being easily irritated or angry", "stress", "😠"},
-            {"Concentration issues", "Difficulty focusing or concentrating", "stress", "🤔"},
-            {"Physical tension", "Muscle tension or headaches from stress", "stress", "💪"}
+            // Депресія
+            {"Постійний смуток", "Відчуття смутку або порожнечі більшу частину дня", "depression", "😢"},
+            {"Втрата інтересу", "Зникнення інтересу до занять, які раніше подобались", "depression", "😔"},
+            {"Втома", "Відчуття втоми та браку енергії без видимої причини", "depression", "😴"},
+            {"Проблеми зі сном", "Труднощі з засинанням або надмірна сонливість", "depression", "🌙"},
+
+            // Тривога
+            {"Надмірне хвилювання", "Постійне хвилювання через різні речі без вагомих причин", "anxiety", "😰"},
+            {"Нав'язливі думки", "Думки, які виникають занадто швидко і важко контролювати", "anxiety", "💭"},
+            {"Напруженість", "Відчуття фізичної напруги або внутрішнього неспокою", "anxiety", "😟"},
+            {"Панічні атаки", "Раптовий сильний страх або напади паніки", "anxiety", "😨"},
+
+            // Стрес
+            {"Перевантаження", "Відчуття, що завдань або відповідальності занадто багато", "stress", "😩"},
+            {"Дратівливість", "Легка збудливість, роздратованість або спалахи гніву", "stress", "😠"},
+            {"Труднощі з концентрацією", "Складно зосередитись або утримувати увагу на завданні", "stress", "🤔"},
+            {"Фізична напруга", "М'язова напруга, головний біль або біль у шиї від стресу", "stress", "💪"}
         };
         
         String sql = "INSERT INTO symptoms (name, description, category, icon) VALUES (?, ?, ?, ?)";
@@ -231,11 +231,11 @@ public class DatabaseManager {
     
     private void insertDefaultCourses() throws SQLException {
         String[][] courses = {
-            {"Understanding Depression", "Learn about depression symptoms and causes", "depression", "30", "1"},
-            {"Cognitive Behavioral Therapy Basics", "Introduction to CBT techniques", "general", "45", "2"},
-            {"Mindfulness for Anxiety", "Reduce anxiety through mindfulness practices", "anxiety", "25", "2"},
-            {"Sleep Hygiene", "Improve your sleep quality naturally", "sleep", "20", "1"},
-            {"Stress Management Techniques", "Practical techniques to manage stress", "stress", "35", "2"}
+            {"Розуміння депресії", "Дізнайтесь про симптоми та причини депресії", "depression", "30", "1"},
+            {"Основи когнітивно-поведінкової терапії", "Вступ до технік КПТ для роботи з негативними думками", "general", "45", "2"},
+            {"Майндфулнес при тривозі", "Зменшіть тривогу за допомогою практик усвідомленості", "anxiety", "25", "2"},
+            {"Гігієна сну", "Покращіть якість свого сну природними методами", "sleep", "20", "1"},
+            {"Техніки управління стресом", "Практичні методи для зниження рівня стресу у повсякденному житті", "stress", "35", "2"}
         };
         
         String sql = "INSERT INTO cbt_courses (title, description, category, duration, difficulty) VALUES (?, ?, ?, ?, ?)";
@@ -254,12 +254,12 @@ public class DatabaseManager {
     
     private void insertDefaultExercises() throws SQLException {
         String[][] exercises = {
-            {"Box Breathing", "A simple breathing technique to calm your mind", "breathing", "5", "beginner"},
-            {"5-4-3-2-1 Grounding", "Ground yourself using your five senses", "grounding", "10", "beginner"},
-            {"Progressive Muscle Relaxation", "Relax your body by tensing and releasing muscles", "relaxation", "15", "intermediate"},
-            {"Thought Record", "Identify and challenge negative thoughts", "cognitive", "10", "intermediate"},
-            {"Gratitude Exercise", "Write down things you're grateful for", "mindfulness", "5", "beginner"},
-            {"Meditation", "Practice mindfulness meditation", "meditation", "20", "intermediate"}
+            {"Дихання по квадрату", "Проста дихальна техніка для заспокоєння розуму та зниження тривоги", "breathing", "5", "beginner"},
+            {"Заземлення 5-4-3-2-1", "Повернись у момент «тут і зараз» за допомогою п'яти органів чуття", "grounding", "10", "beginner"},
+            {"Прогресивна м'язова релаксація", "Зніми напругу в тілі, послідовно напружуючи та розслабляючи м'язи", "relaxation", "15", "intermediate"},
+            {"Щоденник думок", "Визнач та перевір негативні автоматичні думки за допомогою КПТ-підходу", "cognitive", "10", "intermediate"},
+            {"Вправа вдячності", "Запиши три речі, за які ти вдячний сьогодні, і відчуй зміну настрою", "mindfulness", "5", "beginner"},
+            {"Медитація усвідомленості", "Практикуй медитацію з фокусом на диханні для зниження стресу", "meditation", "20", "intermediate"}
         };
         
         String sql = "INSERT INTO exercises (title, description, category, duration, difficulty) VALUES (?, ?, ?, ?, ?)";
@@ -296,23 +296,98 @@ public class DatabaseManager {
     }
 
     private void backfillLearningContent() throws SQLException {
-        executeSql(
-            "UPDATE cbt_courses SET content = " +
-            "'1. Read the description carefully.\\n' ||" +
-            "'2. Practice one core idea from this topic today.\\n' ||" +
-            "'3. Write down one observation in your journal.\\n' ||" +
-            "'4. Repeat tomorrow and compare how you feel.' " +
-            "WHERE content IS NULL OR TRIM(content) = ''"
-        );
+        // Unique content for each course
+        String[][] courseContents = {
+            {"Розуміння депресії",
+                "1. Навчись розпізнавати ранні ознаки депресії у власній поведінці та настрої.\n" +
+                "2. Запиши 3 ситуації цього тижня, коли ти відчував брак енергії або безнадію.\n" +
+                "3. Ознайомся з біологічними та психологічними причинами виникнення депресії.\n" +
+                "4. Обговори свої спостереження з близькою людиною або занось їх у щоденник."},
+            {"Основи когнітивно-поведінкової терапії",
+                "1. Прочитай про зв'язок між думками, емоціями та поведінкою людини.\n" +
+                "2. Обери одну негативну думку, яка виникла сьогодні, і запиши її.\n" +
+                "3. Визнач, яка емоція та яка поведінка виникли внаслідок цієї думки.\n" +
+                "4. Попрактикуйся замінювати негативну думку збалансованою та реалістичною."},
+            {"Майндфулнес при тривозі",
+                "1. Виділи 10 хвилин у тихому місці без відволікань та сповіщень.\n" +
+                "2. Зосередься на диханні — вдихай 4 рахунки, видихай 6 рахунків.\n" +
+                "3. Коли виникають тривожні думки — спостерігай за ними без осуду і відпускай.\n" +
+                "4. Після сесії запиши, як змінився твій рівень тривоги порівняно з початком."},
+            {"Гігієна сну",
+                "1. Встанови постійний час відходу до сну та підйому, навіть у вихідні дні.\n" +
+                "2. Уникай екранів і яскравого освітлення щонайменше за 1 годину до сну.\n" +
+                "3. Створи заспокійливий ритуал перед сном: читання, розтяжка або тепла кружка чаю.\n" +
+                "4. Відстежуй якість сну в застосунку протягом 7 днів і проаналізуй закономірності."},
+            {"Техніки управління стресом",
+                "1. Визнач 3 головні джерела стресу цього тижня і запиши їх.\n" +
+                "2. Для кожного стресора сформулюй одну конкретну дію, яка може його зменшити.\n" +
+                "3. Практикуй техніку дихання по квадрату протягом 5 хвилин у піковий момент стресу.\n" +
+                "4. Наприкінці дня оціни рівень стресу і занотуй, що допомогло найбільше."}
+        };
 
-        executeSql(
-            "UPDATE exercises SET instructions = " +
-            "'1. Find a quiet place.\\n' ||" +
-            "'2. Follow the exercise description step by step.\\n' ||" +
-            "'3. Keep steady breathing during the full duration.\\n' ||" +
-            "'4. After completion, note how you feel.' " +
-            "WHERE instructions IS NULL OR TRIM(instructions) = ''"
-        );
+        for (String[] course : courseContents) {
+            String sql = "UPDATE cbt_courses SET content = ? WHERE title = ?";
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setString(1, course[1]);
+                pstmt.setString(2, course[0]);
+                pstmt.executeUpdate();
+            }
+        }
+
+        // Unique instructions for each exercise
+        String[][] exerciseInstructions = {
+            {"Дихання по квадрату",
+                "1. Сядь рівно на зручний стілець, поклади ступні рівно на підлогу.\n" +
+                "2. Повністю видихни, щоб звільнити легені від повітря.\n" +
+                "3. Повільно вдихни через ніс протягом 4 рахунків.\n" +
+                "4. Затримай дихання на 4 рахунки, не напружуючись.\n" +
+                "5. Повільно видихни через рот протягом 4 рахунків.\n" +
+                "6. Затримай порожній видих на 4 рахунки. Повтори цикл 4-6 разів."},
+            {"Заземлення 5-4-3-2-1",
+                "1. Зупинись і зроби один повільний глибокий вдих та видих.\n" +
+                "2. Назви 5 речей, які ти можеш зараз побачити навколо себе.\n" +
+                "3. Назви 4 речі, які ти фізично відчуваєш (стілець, підлога, температура повітря).\n" +
+                "4. Назви 3 звуки, які ти чуєш у своєму оточенні прямо зараз.\n" +
+                "5. Name 2 things you can smell, or recall 2 favourite scents.\n" +
+                "6. Name 1 thing you can taste. Notice how your body feels calmer now."},
+            {"Progressive Muscle Relaxation",
+                "1. Lie down or sit in a comfortable position and close your eyes.\n" +
+                "2. Починаючи зі ступнів, сильно напруж м'язи на 5 секунд.\n" +
+                "3. Різко відпусти напругу і відчуй хвилю розслаблення.\n" +
+                "4. Рухайся вгору — литки, стегна, живіт, кисті, руки, плечі, обличчя.\n" +
+                "5. Приділи 10 секунд розслабленню кожної групи м'язів перед переходом далі.\n" +
+                "6. Завершіть 3 глибокими вдихами і повільно відкрий очі."},
+            {"Щоденник думок",
+                "1. Визнач ситуацію, яка викликала сильну негативну емоцію сьогодні.\n" +
+                "2. Запиши автоматичну думку, яка виникла в тій ситуації.\n" +
+                "3. Оціни інтенсивність емоції від 0 до 100%.\n" +
+                "4. Запиши докази, які підтверджують цю думку.\n" +
+                "5. Запиши докази, які спростовують або ставлять під сумнів цю думку.\n" +
+                "6. Сформулюй збалансовану альтернативну думку і знову оціни емоцію."},
+            {"Вправа вдячності",
+                "1. Знайди тихий момент — вранці або ввечері це працює найкраще.\n" +
+                "2. Відкрий нотатки або щоденник і приготуйся писати.\n" +
+                "3. Запиши 3 конкретні речі, за які ти вдячний сьогодні.\n" +
+                "4. До кожного пункту додай одне речення — чому це важливо для тебе.\n" +
+                "5. Перечитай список вголос повільно і дозволь кожному пункту дійти до серця.\n" +
+                "6. Зверни увагу на будь-яку зміну настрою після виконання вправи."},
+            {"Медитація усвідомленості",
+                "1. Обери тихе місце і встанови таймер на 20 хвилин.\n" +
+                "2. Сядь зручно з рівною спиною, поклади руки на коліна долонями вгору.\n" +
+                "3. Заплющ очі і направ увагу на своє природне дихання.\n" +
+                "4. Коли розум відволікається — м'яко поверни фокус назад до дихання.\n" +
+                "5. Не осуджуй свої думки — просто спостерігай за ними і відпускай.\n" +
+                "6. Коли таймер спрацює — відкрий очі повільно і посидь нерухомо ще хвилину."}
+        };
+
+        for (String[] exercise : exerciseInstructions) {
+            String sql = "UPDATE exercises SET instructions = ? WHERE title = ?";
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setString(1, exercise[1]);
+                pstmt.setString(2, exercise[0]);
+                pstmt.executeUpdate();
+            }
+        }
     }
     
     private void executeSql(String sql) throws SQLException {

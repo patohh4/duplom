@@ -3,7 +3,8 @@ package com.mindoc.model;
 /**
  * Model for per-user application settings.
  */
-public class AppSettings {
+public class
+AppSettings {
     private int userId;
     private String theme;
     private String language;
